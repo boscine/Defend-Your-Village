@@ -1,8 +1,10 @@
 export enum GameState {
+  START_OVERLAY,
   MENU,
   CONTROLS,
   PLAYING,
-  GAMEOVER
+  GAMEOVER,
+  SETTINGS
 }
 
 export interface Point {
@@ -82,3 +84,12 @@ export const COLORS = {
   dark: "#1C2630",
   white: "#E1DEDD"
 };
+
+export interface FloatingText {
+  text: string;
+  x: number;
+  y: number;
+  life: number;
+  maxLife: number;
+  color: string;
+}

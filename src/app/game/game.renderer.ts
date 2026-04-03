@@ -11,10 +11,14 @@ export class GameRenderer {
       this.ctx.translate((Math.random() - 0.5) * state.shakeIntensity, (Math.random() - 0.5) * state.shakeIntensity);
     }
 
-    if (state.gameState === GameState.MENU) {
+    if (state.gameState === GameState.START_OVERLAY) {
+      this.drawStartOverlay(state);
+    } else if (state.gameState === GameState.MENU) {
       this.drawMenu(state, images);
     } else if (state.gameState === GameState.CONTROLS) {
       this.drawControls(state);
+    } else if (state.gameState === GameState.SETTINGS) {
+      this.drawSettings(state);
     } else if (state.gameState === GameState.PLAYING || state.gameState === GameState.GAMEOVER) {
       this.drawGame(state, images, loadedAttackImages);
     }
@@ -22,6 +26,21 @@ export class GameRenderer {
     if (state.shakeIntensity > 0.5) {
       this.ctx.restore();
     }
+  }
+
+  private drawStartOverlay(state: any) {
+    this.ctx.fillStyle = "#111"; // Dark background
+    this.ctx.fillRect(0, 0, state.width, state.height);
+    this.ctx.fillStyle = "white";
+    this.ctx.font = "bold 40px 'Orbitron'";
+    this.ctx.textAlign = "center";
+    this.ctx.fillText("DEFEND YOUR VILLAGE", state.width / 2, state.height / 2 - 20);
+    
+    // Pulsing text
+    this.ctx.fillStyle = `rgba(255, 255, 255, ${Math.abs(Math.sin(Date.now() / 400))})`;
+    this.ctx.font = "20px 'Silkscreen'";
+    this.ctx.fillText("CLICK ANYWHERE TO START", state.width / 2, state.height / 2 + 30);
+    this.ctx.textAlign = "start";
   }
 
   private drawMenu(state: any, images: { [key: string]: HTMLImageElement }) {
@@ -41,6 +60,7 @@ export class GameRenderer {
     this.ctx.fillText("DEFEND YOUR VILLAGE", state.width / 2, 100 + Math.sin(Date.now() / 600) * 8);
     this.drawStyledButton("Play", state.playButton);
     this.drawStyledButton("Controls", state.controlsButton);
+    this.drawStyledButton("Settings", state.settingsButton);
   }
 
   private drawStyledButton(text: string, btn: Button) {
@@ -87,6 +107,37 @@ export class GameRenderer {
     this.drawStyledButton("Go back", state.exitButton);
   }
 
+  private drawSettings(state: any) {
+    this.ctx.fillStyle = "rgba(0, 0, 0, 0.95)";
+    this.ctx.fillRect(0, 0, state.width, state.height);
+    this.ctx.fillStyle = "white";
+    this.ctx.font = "bold 45px 'Orbitron'";
+    this.ctx.textAlign = "center";
+    this.ctx.fillText("AUDIO SETTINGS", state.width / 2, 100);
+    
+    this.ctx.font = "20px 'Silkscreen'";
+    this.ctx.fillStyle = COLORS.cyan; 
+    
+    // SFX
+    this.ctx.textAlign = "right";
+    this.ctx.fillText("SOUND EFFECTS", 380, 208);
+    this.drawStyledButton("-", state.volDownSFX);
+    this.ctx.fillStyle = "white"; this.ctx.textAlign = "center";
+    this.ctx.fillText(Math.round(state.soundManager.sfxVolume * 100) + "%", 500, 208);
+    this.drawStyledButton("+", state.volUpSFX);
+
+    // BGM
+    this.ctx.fillStyle = COLORS.cyan; this.ctx.textAlign = "right";
+    this.ctx.fillText("MUSIC VOLUME", 380, 268);
+    this.drawStyledButton("-", state.volDownBGM);
+    this.ctx.fillStyle = "white"; this.ctx.textAlign = "center";
+    this.ctx.fillText(Math.round(state.soundManager.bgmVolume * 100) + "%", 500, 268);
+    this.drawStyledButton("+", state.volUpBGM);
+
+    this.ctx.textAlign = "center";
+    this.drawStyledButton("Confirm", state.settingsBackButton);
+  }
+
   private drawGame(state: any, images: { [key: string]: HTMLImageElement }, loadedAttackImages: HTMLImageElement[]) {
     const bgImg = images[`bg${state.map}`] || images['bg1'];
     if (bgImg) this.ctx.drawImage(bgImg, 0, 0, state.width, state.height);
@@ -120,6 +171,7 @@ export class GameRenderer {
     });
 
     this.drawParticles(state);
+    this.drawFloatingTexts(state);
     this.drawUI(state, images);
 
     // DRAW MAGIC BEAM ON TOP OF EVERYTHING
@@ -452,7 +504,7 @@ export class GameRenderer {
     this.ctx.fillStyle = "white"; this.ctx.font = "bold 50px 'Orbitron'"; this.ctx.textAlign = "center";
     this.ctx.fillText("Paused", state.width / 2, state.height / 2 - 20);
     this.ctx.font = "18px 'Silkscreen'"; this.ctx.fillText("Click anywhere to continue", state.width / 2, state.height / 2 + 40);
-    this.ctx.font = "bold 20px 'Orbitron'";    this.ctx.fillText("Quit to Menu", state.backtomenu_ui.x + state.backtomenu_ui.w / 2, state.backtomenu_ui.y + state.backtomenu_ui.h / 2 + 7);
+    this.drawStyledButton("Quit to Menu", state.backtomenu_ui);
     this.ctx.textAlign = "start";
   }
 
@@ -468,5 +520,21 @@ export class GameRenderer {
     this.ctx.fillStyle = "#00FFFF";
     const progress = (state.frame + 1) / state.limit;
     this.ctx.fillRect(x + 2, y + 2, progress * (w - 4), h - 4);
+  }
+
+  private drawFloatingTexts(state: any) {
+    if (!state.floatingTexts || state.floatingTexts.length === 0) return;
+    this.ctx.save();
+    this.ctx.textAlign = "center";
+    this.ctx.font = "bold 16px 'Orbitron'";
+    state.floatingTexts.forEach((ft: any) => {
+      const alpha = Math.max(0, ft.life / ft.maxLife);
+      this.ctx.fillStyle = ft.color;
+      this.ctx.globalAlpha = alpha;
+      this.ctx.shadowBlur = 10;
+      this.ctx.shadowColor = ft.color;
+      this.ctx.fillText(ft.text, ft.x, ft.y);
+    });
+    this.ctx.restore();
   }
 }

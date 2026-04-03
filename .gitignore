@@ -15,3 +15,6 @@ build/
 
 # System files
 Thumbs.db
+
+# Test Scripts
+test_sim.js
