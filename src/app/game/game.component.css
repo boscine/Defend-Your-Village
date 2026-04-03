@@ -1,0 +1,129 @@
+:host {
+    display: block;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+}
+
+.game-wrapper {
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    background: #020c1b radial-gradient(circle at center, #0a192f 0%, #020c1b 100%);
+    font-family: 'Orbitron', 'Silkscreen', sans-serif;
+    color: #fff;
+    padding: 20px;
+}
+
+.header {
+    margin-bottom: 30px;
+    text-align: center;
+}
+
+.glow-text {
+    font-size: 3rem;
+    font-weight: 700;
+    color: #fff;
+    text-shadow: 0 0 10px rgba(0, 210, 255, 0.5),
+                 0 0 20px rgba(0, 210, 255, 0.3),
+                 0 0 30px rgba(0, 210, 255, 0.15);
+    letter-spacing: 4px;
+}
+
+.viewport {
+    position: relative;
+    padding: 15px;
+    background: rgba(37, 180, 218, 0.05);
+    border-radius: 16px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(20px);
+    box-shadow: 0 40px 100px rgba(0, 0, 0, 0.8),
+                0 0 40px rgba(37, 180, 218, 0.1);
+}
+
+.game-container {
+    overflow: hidden;
+    border-radius: 8px;
+    box-shadow: 0 0 50px rgba(0, 0, 0, 0.5);
+    background: #000;
+}
+
+canvas {
+    display: block;
+    width: 1000px;
+    height: 400px;
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+}
+
+.footer {
+    margin-top: 30px;
+    text-align: center;
+    opacity: 0.7;
+}
+
+.controls-hint {
+    background: rgba(0, 0, 0, 0.3);
+    padding: 10px 25px;
+    border-radius: 30px;
+    font-family: 'Silkscreen', sans-serif;
+    font-size: 0.9rem;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.key {
+    color: #25b4da;
+    font-weight: 700;
+}
+
+.ui-layer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background: rgba(0, 0, 0, 0.7);
+    pointer-events: all;
+    border-radius: 16px;
+}
+
+.gameover-overlay {
+    text-align: center;
+    animation: fadeIn 0.5s ease-out;
+}
+
+.gameover-overlay h2 {
+    font-size: 4rem;
+    color: #ff0055;
+    margin-bottom: 20px;
+    text-shadow: 0 0 20px rgba(255, 0, 85, 0.5);
+}
+
+.menu-btn {
+    margin-top: 30px;
+    padding: 12px 35px;
+    font-family: 'Orbitron', sans-serif;
+    font-size: 1.1rem;
+    background: transparent;
+    color: #fff;
+    border: 2px solid #fff;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.menu-btn:hover {
+    background: #fff;
+    color: #000;
+    box-shadow: 0 0 20px rgba(255, 255, 255, 0.4);
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-20px); }
+    to { opacity: 1; transform: translateY(0); }
+}

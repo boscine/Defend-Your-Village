@@ -1,0 +1,17 @@
+# Dependency directories
+node_modules/
+
+# Build outputs
+dist/
+build/
+.angular/
+
+# Temporary files
+.DS_Store
+*.log
+.vscode/
+.idea/
+.env
+
+# System files
+Thumbs.db

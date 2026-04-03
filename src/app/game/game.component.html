@@ -1,0 +1,32 @@
+<div class="game-wrapper">
+  <div class="header">
+    <h1 class="glow-text">DEFEND YOUR VILLAGE</h1>
+  </div>
+  
+  <div class="viewport">
+    <div class="game-container">
+      <canvas #gameCanvas 
+              (click)="handleCanvasClick($event)"
+              (mousemove)="handleMouseMove($event)"></canvas>
+    </div>
+  </div>
+
+  <div class="footer">
+    <div class="controls-hint">
+        <span class="key">W A S D</span> Move | 
+        <span class="key">J</span> Melee | 
+        <span class="key">K</span> Special | 
+        <span class="key">L</span> Charge | 
+        <span class="key">ESC</span> Pause
+    </div>
+  </div>
+
+  <!-- Overlay UI using Angular instead of direct Canvas drawing when possible -->
+  <div class="ui-layer" *ngIf="logic.gameState === 3"> <!-- Game State Enum GAMEOVER -->
+    <div class="gameover-overlay">
+        <h2>GAME OVER</h2>
+        <p>Final Level: {{logic.current_level}}</p>
+        <button class="menu-btn" (click)="logic.resetGame()">Return to Menu</button>
+    </div>
+  </div>
+</div>
