@@ -296,7 +296,7 @@ export class GameRenderer {
     if (state.direction === "attack") { img = loadedAttackImages[state.currentAttackIndex]; sourceFrame = state.attackFrameIndex; }
     if (state.direction === "attack2") img = images['attack4'];
     if (state.direction === "charge") img = images['attack1'];
-    if (state.hurt) img = images['hurt'];
+    if (state.hurt) { img = images['hurt']; sourceFrame = state.frame % 2; }
     if (state.gameover) img = images['dead'];
     if (img && img.complete) {
       this.ctx.save(); this.ctx.beginPath(); this.ctx.translate(state.x + state.w / 2, state.y + state.h);
@@ -324,11 +324,11 @@ export class GameRenderer {
   }
 
   private drawMagicBeam(state: any) {
-    const beamY = state.y - 0; const beamHeight = 40; const beamWidth = state.width; 
+    const beamY = state.y + 8; const beamHeight = 40; const beamWidth = state.width; 
     const pulse = Math.sin(Date.now() / 50) * 8;
     this.ctx.save();
-    if (state.lastDirection === "left") { this.ctx.scale(-1, 1); this.renderBeamEffect(-state.x + 10, beamY - pulse / 2, beamWidth, beamHeight + pulse); }
-    else { this.renderBeamEffect(state.x + 50, beamY - pulse / 2, beamWidth, beamHeight + pulse); }
+    if (state.lastDirection === "left") { this.ctx.scale(-1, 1); this.renderBeamEffect(-state.x + 13, beamY - pulse / 2, beamWidth, beamHeight + pulse); }
+    else { this.renderBeamEffect(state.x + 45, beamY - pulse / 2, beamWidth, beamHeight + pulse); }
     this.ctx.restore();
     
     // Add extra particles along the beam for intensity
@@ -347,7 +347,7 @@ export class GameRenderer {
     // Dynamic animated core
     const time = Date.now() / 100;
     const centerY = by + bh / 2;
-    const startH = 8; // Small start height
+    const startH = 3; // THIN START as requested
     const endH = bh; // Full target height at distance
 
     const coreGrad = this.ctx.createLinearGradient(bx, by, bx, by + bh);
@@ -363,10 +363,10 @@ export class GameRenderer {
     this.ctx.shadowBlur = 30; this.ctx.shadowColor = "#00ffff"; 
     this.ctx.fillStyle = "rgba(0, 217, 255, 0.25)";
     this.ctx.beginPath();
-    this.ctx.moveTo(bx, centerY - (startH + 10) / 2);
+    this.ctx.moveTo(bx, centerY - (startH + 5) / 2);
     this.ctx.lineTo(bx + bw, centerY - (endH + 20) / 2);
     this.ctx.lineTo(bx + bw, centerY + (endH + 20) / 2);
-    this.ctx.lineTo(bx, centerY + (startH + 10) / 2);
+    this.ctx.lineTo(bx, centerY + (startH + 5) / 2);
     this.ctx.fill();
     
     // Conical core
@@ -379,7 +379,7 @@ export class GameRenderer {
     this.ctx.lineTo(bx, centerY + startH / 2);
     this.ctx.fill();
     
-    // Electric arcs (now following the conical path)
+    // Electric arcs (tightened at start point)
     this.ctx.beginPath(); this.ctx.strokeStyle = "rgba(255, 255, 255, 0.7)"; this.ctx.lineWidth = 1;
     for (let i = 0; i < 4; i++) {
         let lx = bx; let ly = centerY;
@@ -387,7 +387,7 @@ export class GameRenderer {
         for(let step = 1; step <= 10; step++) {
             const progress = step / 10;
             lx = bx + bw * progress; 
-            const currentSpread = startH + (endH - startH) * progress;
+            const currentSpread = (startH + 2) + (endH - startH) * progress;
             ly = centerY + (Math.random() - 0.5) * currentSpread;
             this.ctx.lineTo(lx, ly);
         }
@@ -400,15 +400,18 @@ export class GameRenderer {
     let img = images['skeleton_walk'];
     if (state.enemy.enemydeath[i]) img = images['skeleton_death'];
     else if (state.enemy.hurt[i]) img = images['skeleton_hurt'];
-    else if (state.enemy.attack[i]) img = images['skeleton_attack3'];
-    else if (state.enemy.attackingplayer[i]) img = images['skeleton_attack'];
+    else if (state.enemy.attack[i] || state.enemy.attackingplayer[i]) {
+      const type = state.enemy.attackType[i] || 0;
+      const attackKeys = ['skeleton_attack', 'skeleton_attack2', 'skeleton_attack3'];
+      img = images[attackKeys[type]];
+    }
 
     if (img && img.complete) {
       // Draw shadow (LOWERED) - ONLY IF ALIVE
       if (!state.enemy.enemydeath[i]) {
         this.ctx.save();
         this.ctx.beginPath();
-        this.ctx.translate(state.enemy.x[i] + 5, state.enemy.y[i] + 50);
+        this.ctx.translate(state.enemy.x[i] + 5, state.enemy.y[i] + 40);
         this.ctx.scale(1.8, 0.5);
         this.ctx.arc(0, 0, 8, 0, Math.PI * 2);
         this.ctx.fillStyle = "rgba(0,0,0,0.5)";
@@ -417,15 +420,15 @@ export class GameRenderer {
       }
 
       let currentFrame = 0;
+      const sheetFrames = Math.floor(img.width / 128) || 1; 
+
       if (state.enemy.enemydeath[i]) {
-        currentFrame = state.enemy.deathFrame[i];
-      } else if (state.enemy.attackingplayer[i]) {
-        currentFrame = state.enemy_Frame % 6; 
+        currentFrame = state.enemy.deathFrame[i]; 
       } else {
-        currentFrame = state.enemy_Frame % 4; 
+        currentFrame = state.enemy_Frame % sheetFrames;
       }
 
-      // Draw skeleton with attack glow
+      // Draw skeleton with high-fidelity framing (100x100)
       this.ctx.save();
       if (state.enemy.attackingplayer[i] && !state.enemy.enemydeath[i]) {
           this.ctx.shadowBlur = 10; this.ctx.shadowColor = "rgba(255, 0, 0, 0.5)";
@@ -433,7 +436,7 @@ export class GameRenderer {
       if (state.enemy.hurt[i]) {
           this.ctx.filter = "brightness(2) contrast(1.5)";
       }
-      this.ctx.drawImage(img, currentFrame * 128, 0, 128, 128, state.enemy.x[i] - 50, state.enemy.y[i] - 70, 120, 120);
+      this.ctx.drawImage(img, currentFrame * 128, 0, 128, 128, state.enemy.x[i] - 40, state.enemy.y[i] - 60, 100, 100);
       this.ctx.restore();
 
       if (!state.enemy.enemydeath[i]) {

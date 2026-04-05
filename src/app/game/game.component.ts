@@ -51,6 +51,7 @@ export class GameComponent implements AfterViewInit, OnDestroy {
       { name: 'bg3', path: 'assets/background/game_background_1.png' },
       { name: 'skeleton_walk', path: 'assets/Skeleton/Walk.png' },
       { name: 'skeleton_attack', path: 'assets/Skeleton/Attack_1.png' },
+      { name: 'skeleton_attack2', path: 'assets/Skeleton/Attack_2.png' },
       { name: 'skeleton_attack3', path: 'assets/Skeleton/Attack_3.png' },
       { name: 'skeleton_death', path: 'assets/Skeleton/Dead.png' },
       { name: 'skeleton_hurt', path: 'assets/Skeleton/Hurt.png' },

@@ -34,10 +34,10 @@ export class GameLogic {
   public enemy: EnemyState = {
     x: [], y: [], w: 20, h: 20, speed: [], enemydeath: [], attack: [], health: [], maxHealth: [], move: [],
     attackingplayer: [], playerattack_death: [], damage_value: [], blinking: [], blinkTimer: [],
-    deathFrame: [], flash: [], hurt: [], hurtTimer: []
+    deathFrame: [], flash: [], hurt: [], hurtTimer: [], attackType: []
   };
 
-  public enemy_Frame = 0; public enemy_limit = 8; public enemy_Fps = 5; public enemy_Counter = 0;
+  public enemy_Frame = 0; public enemy_limit = 8; public enemy_Fps = 8; public enemy_Counter = 0;
 
   public attackhitbox: AttackHitbox & { hitsThisSwing: number } = { x: 100, y: 250, w: 80, h: 60, attackhit: false, hitsThisSwing: 0 };
   public currentAttackIndex = 0;
@@ -125,6 +125,9 @@ export class GameLogic {
 
     if (this.town.health <= 0 || this.playerHealth <= 0) {
       this.gameover = true; this.gameState = GameState.GAMEOVER;
+      this.moveLeft = false; this.moveRight = false; this.moveUp = false; this.moveDown = false;
+      this.attack = false; this.attack2 = false; this.charge = false;
+      this.movement = false;
     }
 
     if (this.shakeIntensity > 0) this.shakeIntensity *= 0.9;
@@ -245,16 +248,20 @@ export class GameLogic {
           this.enemy.move[i] = false;
           
           // Apply damage synchronized with the sword swing (frame 6)
-          if (this.enemy_Frame === 6) {
+          if (this.enemy_Frame === 6 && !this.town.hurt) {
             // Slight decrease to village damage specifically (50% physical resistance)
+            // Also add invulnerability frames for the town to prevent instant death from mobs
             this.town.health = Math.max(this.town.health - (this.enemy.damage_value[i] * 0.5), 0);
+            this.town.hurt = true;
+            this.town.hurtTimer = 15; // Town is invulnerable for 15 frames after any hit
           }
         }
 
         // Only process combat and player interaction if the enemy is on the player's current map
-        if (this.dummyMap[i] === this.map) {
-          // Check collision with player
-          if (this.checkCollision(this.x, this.y, this.w, this.h, this.enemy.x[i], this.enemy.y[i], this.enemy.w, this.enemy.h)) {
+        // BAD MAP EDGE LOGIC FIX: Enemies cannot strike if THEY are too close to the screen edges
+        if (this.dummyMap[i] === this.map && this.enemy.x[i] > 10 && this.enemy.x[i] < this.width - 50) {
+          // Check collision with player (slightly decreased hitbox for fairness)
+          if (this.checkCollision(this.x + 5, this.y + 5, this.w - 10, this.h - 10, this.enemy.x[i], this.enemy.y[i], this.enemy.w, this.enemy.h)) {
             // Skeleton attack hits on frame 6 of its 8-frame animation loop
             if (this.enemy_Frame === 6) { 
               this.playerHealth = Math.max(this.playerHealth - this.enemy.damage_value[i], 0); 
@@ -267,9 +274,12 @@ export class GameLogic {
             }
             this.enemy.attackingplayer[i] = true; this.enemy.move[i] = false;
           } else {
-            this.enemy.attackingplayer[i] = false;
+            // Priority Check: Only cancel attackingplayer if not currently striking the town on Map 1
+            if (!(this.dummyMap[i] === 1 && this.enemy.x[i] + this.enemy.w > this.town.x)) {
+              this.enemy.attackingplayer[i] = false;
+            }
             // Allow movement if not hitting town and NOT hurt
-            if (!(this.map === 1 && this.enemy.x[i] + this.enemy.w > this.town.x) && !this.enemy.hurt[i]) {
+            if (!(this.dummyMap[i] === 1 && this.enemy.x[i] + this.enemy.w > this.town.x) && !this.enemy.hurt[i]) {
               this.enemy.move[i] = true;
             } else {
               this.enemy.move[i] = false;
@@ -315,10 +325,10 @@ export class GameLogic {
 
   private checkCollision(x1: number, y1: number, w1: number, h1: number, x2: number, y2: number, w2: number, h2: number) { return x1 < x2 + w2 && x1 + w1 > x2 && y1 < y2 + h2 && y1 + h1 > y2; }
   private checkLaserHit(enemyIdx: number) {
-    const beamY = this.y; // Corrected to match ground-level beam (state.y - 0)
+    const beamY = this.y + 11; // Matches renderer height (+81 from bounding box)
     const ey = this.enemy.y[enemyIdx]; const eh = this.enemy.h;
-    // Narrowed hitbox to match the conical animation's core
-    if (ey < beamY + 20 && ey + eh > beamY - 20) {
+    // Widened hitbox for more reliable hit registration
+    if (ey < beamY + 30 && ey + eh > beamY - 30) {
       if (this.lastDirection === "left") return this.enemy.x[enemyIdx] < this.x;
       else return this.enemy.x[enemyIdx] > this.x;
     }
@@ -344,6 +354,7 @@ export class GameLogic {
       this.enemy.move[i] = true; // MUST START MOVING
       this.enemy.attackingplayer[i] = false;
       this.enemy.attack[i] = false;
+      this.enemy.attackType[i] = Math.floor(Math.random() * 3);
       
       // Speed scales slightly with level
       this.enemy.speed[i] = 0.4 + (this.current_level * 0.08) + Math.random() * 0.1;
@@ -360,7 +371,11 @@ export class GameLogic {
   private clearEnemies() {
     for (let i = this.enemies - 1; i >= 0; i--) {
       if (this.enemy.enemydeath[i]) {
-        this.enemy.blinkTimer[i]++; if (this.enemy.blinkTimer[i] % 15 === 0 && this.enemy.deathFrame[i] < 3) this.enemy.deathFrame[i]++;
+        // Play out death animation once and stay on the final frame (index 3 for the 4-frame sheet)
+        this.enemy.blinkTimer[i]++; 
+        if (this.enemy.blinkTimer[i] % 15 === 0 && this.enemy.deathFrame[i] < 3) {
+          this.enemy.deathFrame[i]++;
+        }
         if (this.enemy.blinkTimer[i] > 100) {
           const keys = Object.keys(this.enemy);
           keys.forEach(key => { if (Array.isArray(this.enemy[key])) this.enemy[key].splice(i, 1); });

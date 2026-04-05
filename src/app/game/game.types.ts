@@ -54,6 +54,7 @@ export interface EnemyState {
   flash: boolean[];
   hurt: boolean[];
   hurtTimer: number[];
+  attackType: number[];
 }
 
 export interface Particle {
