@@ -10,30 +10,232 @@ body {
     display: flex;
     justify-content: center;
     align-items: center;
-    height: 100vh;
+    min-height: 100vh;
     overflow: hidden;
     color: white;
+    font-family: 'Orbitron', sans-serif;
 }
 
+/* ─── LOADING SCREEN ─────────────────────────────────────────────── */
+#loading-screen {
+    position: fixed;
+    inset: 0;
+    background: #020c1b;
+    background-image: radial-gradient(circle at 50% 40%, #0a192f 0%, #020c1b 70%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 28px;
+    z-index: 1000;
+    transition: opacity 0.7s ease;
+}
+
+#loading-screen.fade-out {
+    opacity: 0;
+    pointer-events: none;
+}
+
+.loading-title {
+    font-size: clamp(1.2rem, 5vw, 2.6rem);
+    font-weight: 700;
+    letter-spacing: 0.15em;
+    text-align: center;
+    color: #ffffff;
+    text-shadow: 0 0 30px rgba(0, 210, 255, 0.6), 0 0 60px rgba(0, 210, 255, 0.3);
+    animation: titlePulse 2s ease-in-out infinite;
+}
+
+@keyframes titlePulse {
+    0%, 100% { text-shadow: 0 0 30px rgba(0, 210, 255, 0.6), 0 0 60px rgba(0, 210, 255, 0.3); }
+    50%       { text-shadow: 0 0 50px rgba(0, 210, 255, 1),   0 0 90px rgba(0, 210, 255, 0.6); }
+}
+
+.loading-subtitle {
+    font-family: 'Silkscreen', monospace;
+    font-size: clamp(0.65rem, 2vw, 0.85rem);
+    color: #25B4DA;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+}
+
+.loading-bar-wrap {
+    width: clamp(200px, 60vw, 420px);
+    background: rgba(255, 255, 255, 0.07);
+    border: 1px solid rgba(0, 210, 255, 0.25);
+    border-radius: 999px;
+    padding: 4px;
+    box-shadow: 0 0 20px rgba(0, 195, 255, 0.1);
+}
+
+.loading-bar {
+    height: 10px;
+    width: 0%;
+    background: linear-gradient(90deg, #00c3ff, #00ffe7);
+    border-radius: 999px;
+    transition: width 0.25s ease;
+    box-shadow: 0 0 12px rgba(0, 220, 255, 0.8);
+}
+
+.loading-pct {
+    font-family: 'Silkscreen', monospace;
+    font-size: clamp(0.6rem, 1.8vw, 0.75rem);
+    color: rgba(255, 255, 255, 0.5);
+    letter-spacing: 0.1em;
+}
+
+/* Decorative animated dots */
+.loading-dots span {
+    display: inline-block;
+    animation: dotBounce 1.2s ease-in-out infinite;
+    color: #25B4DA;
+    font-family: 'Silkscreen', monospace;
+    font-size: 1.4rem;
+}
+.loading-dots span:nth-child(2) { animation-delay: 0.2s; }
+.loading-dots span:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes dotBounce {
+    0%, 80%, 100% { transform: translateY(0); opacity: 0.4; }
+    40%            { transform: translateY(-8px); opacity: 1; }
+}
+
+/* ─── GAME CONTAINER ─────────────────────────────────────────────── */
 .game-container {
     position: relative;
-    padding: 10px;
-    background: rgba(0, 210, 255, 0.03); /* Slight cyan tint */
+    /* 
+     * Responsive wrapper: keeps the 1000×400 (5:2) aspect ratio
+     * on any screen. The canvas itself uses logical 1000×400 internally
+     * but CSS scales it to fill this container.
+     */
+    width: min(1000px, 98vw);
+    aspect-ratio: 1000 / 400;
+    padding: 8px;
+    background: rgba(0, 210, 255, 0.03);
     border-radius: 12px;
-    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.7),
-                0 0 30px rgba(0, 195, 255, 0.15),
-                0 0 0 1px rgba(0, 210, 255, 0.2);
+    box-shadow:
+        0 20px 50px rgba(0, 0, 0, 0.7),
+        0 0 30px rgba(0, 195, 255, 0.15),
+        0 0 0 1px rgba(0, 210, 255, 0.2);
     backdrop-filter: blur(15px);
 }
 
 canvas {
     display: block;
-    width: 1000px;
-    height: 400px;
+    /* Fill the container completely */
+    width: 100%;
+    height: 100%;
     border-radius: 4px;
-    image-rendering: -moz-pixelated;
+    image-rendering: -moz-crisp-edges;
     image-rendering: -webkit-optimize-contrast;
     image-rendering: pixelated;
-    image-rendering: optimize-contrast;
+    image-rendering: crisp-edges;
     box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.8);
+}
+
+/* ─── TOUCH CONTROLS  (shown only on touch devices) ─────────────── */
+#touch-controls {
+    display: none;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    padding: 12px 20px;
+    background: rgba(2, 12, 27, 0.75);
+    backdrop-filter: blur(8px);
+    border-top: 1px solid rgba(0, 210, 255, 0.15);
+    z-index: 500;
+    user-select: none;
+    -webkit-user-select: none;
+    touch-action: none;
+}
+
+@media (pointer: coarse) {
+    #touch-controls { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+}
+
+.tc-dpad {
+    display: grid;
+    grid-template-columns: repeat(3, 44px);
+    grid-template-rows: repeat(3, 44px);
+    gap: 4px;
+}
+
+.tc-btn {
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(0, 210, 255, 0.3);
+    border-radius: 8px;
+    color: #25B4DA;
+    font-size: 1.1rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: none;
+    transition: background 0.1s;
+}
+
+.tc-btn:active, .tc-btn.pressed {
+    background: rgba(0, 210, 255, 0.25);
+    box-shadow: 0 0 10px rgba(0, 210, 255, 0.4);
+}
+
+.tc-btn.empty { border: none; background: transparent; pointer-events: none; }
+
+.tc-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.tc-action-row {
+    display: flex;
+    gap: 8px;
+}
+
+.tc-action-btn {
+    width: 56px;
+    height: 44px;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(0, 210, 255, 0.3);
+    border-radius: 10px;
+    color: white;
+    font-family: 'Silkscreen', monospace;
+    font-size: 0.6rem;
+    letter-spacing: 0.05em;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: none;
+    transition: background 0.1s;
+}
+
+.tc-action-btn .key {
+    font-size: 0.85rem;
+    font-weight: bold;
+    color: #25B4DA;
+}
+
+.tc-action-btn:active, .tc-action-btn.pressed {
+    background: rgba(0, 210, 255, 0.25);
+    box-shadow: 0 0 10px rgba(0, 210, 255, 0.4);
+}
+
+/* ─── SMALL SCREEN ADJUSTMENTS ──────────────────────────────────── */
+@media (pointer: coarse) {
+    body {
+        align-items: flex-start;
+        padding-top: 10px;
+        /* leave room for touch controls */
+        padding-bottom: 140px;
+    }
+
+    .game-container {
+        width: 99vw;
+    }
 }

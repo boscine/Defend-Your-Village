@@ -2,17 +2,70 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="description" content="Defend Your Village – a browser-based action game. Fight skeletons, protect your town, and survive endless waves!">
     <link rel="icon" type="image/png" href="Enchantress/Profile.png">
     <title>Defend Your Village</title>
-    <!-- High-quality Gaming Fonts -->
+    <!-- Gaming Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Silkscreen:wght@400;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="index.css">
 </head>
 <body>
+
+    <!-- ═══════════════════════ LOADING SCREEN ══════════════════════ -->
+    <div id="loading-screen">
+        <div class="loading-title">DEFEND YOUR VILLAGE</div>
+        <div class="loading-dots">
+            <span>▸</span><span>▸</span><span>▸</span>
+        </div>
+        <div class="loading-bar-wrap">
+            <div class="loading-bar" id="loading-bar"></div>
+        </div>
+        <div class="loading-pct" id="loading-pct">Loading assets… 0%</div>
+        <div class="loading-subtitle">Prepare for battle</div>
+    </div>
+
+    <!-- ═══════════════════════ GAME ════════════════════════════════ -->
     <div class="game-container">
         <canvas id="lala"></canvas>
     </div>
-    <script src="mainmenu.js"></script>
+
+    <!-- ═══════════════════════ TOUCH CONTROLS ══════════════════════ -->
+    <div id="touch-controls">
+        <!-- D-Pad -->
+        <div class="tc-dpad">
+            <div class="tc-btn empty"></div>
+            <div class="tc-btn" id="tc-up"   data-key="w">▲</div>
+            <div class="tc-btn empty"></div>
+            <div class="tc-btn" id="tc-left"  data-key="a">◀</div>
+            <div class="tc-btn empty"></div>
+            <div class="tc-btn" id="tc-right" data-key="d">▶</div>
+            <div class="tc-btn empty"></div>
+            <div class="tc-btn" id="tc-down"  data-key="s">▼</div>
+            <div class="tc-btn empty"></div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="tc-actions">
+            <div class="tc-action-row">
+                <div class="tc-action-btn" id="tc-j" data-key="j">
+                    <span class="key">J</span>Melee
+                </div>
+                <div class="tc-action-btn" id="tc-k" data-key="k">
+                    <span class="key">K</span>Beam
+                </div>
+                <div class="tc-action-btn" id="tc-l" data-key="l">
+                    <span class="key">L</span>Charge
+                </div>
+            </div>
+            <div class="tc-action-row">
+                <div class="tc-action-btn" id="tc-esc" data-key="Escape" style="width:128px;">
+                    <span class="key">⏸</span>Pause
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="loader.js"></script>
 </body>
 </html>

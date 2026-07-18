@@ -1,4 +1,4 @@
-start_menu();
+// start_menu() is called by loader.js after assets finish loading
 function start_menu() {
   const canvas = document.getElementById("lala");
   const ctx = canvas.getContext("2d");
@@ -9,7 +9,7 @@ function start_menu() {
   canvas.height = height; 
 
   const backgroundmain = new Image();
-  backgroundmain.src = "background/battleground1.png";
+  backgroundmain.src = "background/Battleground1.png";
 
   const playerbg = new Image();
   playerbg.src = "Enchantress/Idle.png";

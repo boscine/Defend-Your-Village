@@ -70,7 +70,7 @@ function startGame() {
     let attackhitbox = { x: x, y: y, w: 80, h: 60, attackhit: false };
 
     let playerRight = new Image(), playerLeft = new Image(), attackFrame2 = new Image(), idle = new Image(), idleMirror = new Image(), deadFrame = new Image(), profile = new Image(), background = new Image(), chargeFrame = new Image(), hurtFrame = new Image();
-    playerRight.src = "Enchantress/run.png"; playerLeft.src = "Enchantress/run.png"; attackFrame2.src = "Enchantress/Attack_4.png"; idle.src = "Enchantress/Idle.png"; deadFrame.src = "Enchantress/Dead.png"; profile.src = "Enchantress/Profile.png"; background.src = "background/battleground1.png"; chargeFrame.src = "Enchantress/Attack_1.png"; hurtFrame.src = "Enchantress/Hurt.png";
+    playerRight.src = "Enchantress/Run.png"; playerLeft.src = "Enchantress/Run.png"; attackFrame2.src = "Enchantress/Attack_4.png"; idle.src = "Enchantress/Idle.png"; deadFrame.src = "Enchantress/Dead.png"; profile.src = "Enchantress/Profile.png"; background.src = "background/Battleground1.png"; chargeFrame.src = "Enchantress/Attack_1.png"; hurtFrame.src = "Enchantress/Hurt.png";
 
     let playerDeath = new Image();
     playerDeath.src = "Enchantress/Dead.png";
@@ -727,7 +727,7 @@ function startGame() {
         }
 
 
-        if (map == 1) background.src = "background/battleground1.png";
+        if (map == 1) background.src = "background/Battleground1.png";
         if (map == 2) background.src = "background/game_background_2.png";
         if (map == 3) background.src = "background/game_background_1.png";
     }
