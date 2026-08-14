@@ -27,7 +27,11 @@ export class GameLogic {
   public manaFlash = 0; // NEW: Visual indicator for insufficient mana
 
   public pausebutton = { x: 905, y: 15, width: 50, height: 40, boolean: false };
-  public backtomenu_ui: Button = { x: 350, y: 320, width: 300, height: 50, hover: false };
+  public backtomenu_ui: Button = { x: 350, y: 290, width: 300, height: 50, hover: false };
+  public resumeButton: Button   = { x: 350, y: 210, width: 300, height: 50, hover: false };
+  public pauseSettingsButton: Button = { x: 350, y: 250, width: 300, height: 50, hover: false };
+  // Tracks where Settings was opened from (MENU or PLAYING/pause), so Back can return correctly
+  public settingsPreviousState: GameState = GameState.MENU;
   public town: Town = { x: 650, y: 100, w: 300, h: 300, alive: true, health: 100, maxHealth: 100, hurt: false, hurtTimer: 0 };
   public dummyMap: number[] = [];
 
@@ -50,20 +54,39 @@ export class GameLogic {
   public settingsButton: Button = { x: 350, y: 290, width: 300, height: 50, hover: false };
   public exitButton: Button = { x: 400, y: 350, width: 200, height: 40, hover: false };
   
-  // Settings Screen UI
-  public volUpSFX: Button = { x: 550, y: 180, width: 40, height: 40, hover: false };
-  public volDownSFX: Button = { x: 410, y: 180, width: 40, height: 40, hover: false };
-  public volUpBGM: Button = { x: 550, y: 240, width: 40, height: 40, hover: false };
-  public volDownBGM: Button = { x: 410, y: 240, width: 40, height: 40, hover: false };
-  public settingsBackButton: Button = { x: 400, y: 320, width: 200, height: 40, hover: false };
+  // Accessibility & Low-End Mode Settings
+  public accessibility = {
+    lowEndMode: false,
+    highContrast: false,
+    reducedMotion: false,
+    screenReaderText: ''
+  };
+
+  // Asset Loading State
+  public loadingProgress = 0;
+  public loadingTotal = 0;
+  public loadingLoaded = 0;
+  public loadingStatusText = 'Initializing core assets...';
+
+  // Settings Buttons
+  public toggleLowEndBtn: Button = { x: 500, y: 260, width: 140, height: 36, hover: false };
+  public toggleContrastBtn: Button = { x: 500, y: 305, width: 140, height: 36, hover: false };
+  public toggleMotionBtn: Button = { x: 500, y: 350, width: 140, height: 36, hover: false };
+
+  public volUpSFX: Button = { x: 570, y: 160, width: 36, height: 36, hover: false };
+  public volDownSFX: Button = { x: 440, y: 160, width: 36, height: 36, hover: false };
+  public volUpBGM: Button = { x: 570, y: 210, width: 36, height: 36, hover: false };
+  public volDownBGM: Button = { x: 440, y: 210, width: 36, height: 36, hover: false };
+  public settingsBackButton: Button = { x: 400, y: 355, width: 200, height: 36, hover: false };
   public menuFrame = 0;
   public lastMenuFrameTime = 0;
   public menuLoopCounter = 0; // NEW: To track blink cycles
 
-  public gameState = GameState.START_OVERLAY;
+  public gameState = GameState.LOADING;
   public soundManager = new SoundManager();
 
   constructor() {
+    this.gameover = false;
     this.spawnEnemies();
   }
 
@@ -436,10 +459,10 @@ export class GameLogic {
     this.floatingTexts.push({ text, x: px, y: py, life: 60, maxLife: 60, color });
   }
 
-  public createBlood(px: number, py: number) { for (let i = 0; i < 6; i++) { this.particles.push({ x: px, y: py, vx: (Math.random() - 0.5) * 6, vy: (Math.random() - 0.5) * 6, life: 25, r: 2 + Math.random() * 3, color: "red" }); } }
-  public createDebris(px: number, py: number) { for (let i = 0; i < 8; i++) { this.particles.push({ x: px, y: py, vx: (Math.random() - 0.5) * 4, vy: -Math.random() * 6, life: 30, r: 3 + Math.random() * 4, color: Math.random() > 0.5 ? "#5D6D7E" : "#85929E" }); } }
-  public createMagicResidue(px: number, py: number) { for (let i = 0; i < 15; i++) { this.particles.push({ x: px, y: py, vx: (Math.random() - 0.5) * 12, vy: (Math.random() - 0.5) * 12, life: 40, r: 1 + Math.random() * 4, color: Math.random() > 0.5 ? "#00FFFF" : "#FFFFFF" }); } }
-  public createManaParticles(px: number, py: number) { if (Math.random() > 0.2) this.particles.push({ x: px + (Math.random() - 0.5) * 60, y: py + 20, vx: (Math.random() - 0.5) * 2, vy: -2 - Math.random() * 3, life: 20, r: 1 + Math.random() * 2, color: "#00FFFF" }); }
+  public createBlood(px: number, py: number) { if (this.accessibility.lowEndMode) return; for (let i = 0; i < 6; i++) { this.particles.push({ x: px, y: py, vx: (Math.random() - 0.5) * 6, vy: (Math.random() - 0.5) * 6, life: 25, r: 2 + Math.random() * 3, color: "red" }); } }
+  public createDebris(px: number, py: number) { if (this.accessibility.lowEndMode) return; for (let i = 0; i < 8; i++) { this.particles.push({ x: px, y: py, vx: (Math.random() - 0.5) * 4, vy: -Math.random() * 6, life: 30, r: 3 + Math.random() * 4, color: Math.random() > 0.5 ? "#5D6D7E" : "#85929E" }); } }
+  public createMagicResidue(px: number, py: number) { if (this.accessibility.lowEndMode) return; for (let i = 0; i < 15; i++) { this.particles.push({ x: px, y: py, vx: (Math.random() - 0.5) * 12, vy: (Math.random() - 0.5) * 12, life: 40, r: 1 + Math.random() * 4, color: Math.random() > 0.5 ? "#00FFFF" : "#FFFFFF" }); } }
+  public createManaParticles(px: number, py: number) { if (this.accessibility.lowEndMode || Math.random() < 0.2) return; this.particles.push({ x: px + (Math.random() - 0.5) * 60, y: py + 20, vx: (Math.random() - 0.5) * 2, vy: -2 - Math.random() * 3, life: 20, r: 1 + Math.random() * 2, color: "#00FFFF" }); }
 
   public resetGame() {
     this.x = 100; this.y = 330; // Updated to your preferred hitbox height

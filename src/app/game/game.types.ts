@@ -1,10 +1,18 @@
 export enum GameState {
+  LOADING,
   START_OVERLAY,
   MENU,
   CONTROLS,
   PLAYING,
   GAMEOVER,
   SETTINGS
+}
+
+export interface AccessibilitySettings {
+  lowEndMode: boolean;       // Reduces particle effects, disables screen shake
+  highContrast: boolean;     // Increases contrast on healthbars and text elements
+  reducedMotion: boolean;    // Removes floating/animating text motion and title bobbing
+  screenReaderText: string;  // Text announced for ARIA / screen readers
 }
 
 export interface Point {

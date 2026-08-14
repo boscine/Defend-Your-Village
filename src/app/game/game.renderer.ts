@@ -6,12 +6,14 @@ export class GameRenderer {
   draw(state: any, images: { [key: string]: HTMLImageElement }, loadedAttackImages: HTMLImageElement[]) {
     this.ctx.clearRect(0, 0, state.width, state.height);
 
-    if (state.shakeIntensity > 0.5) {
+    if (state.shakeIntensity > 0.5 && !state.accessibility?.lowEndMode && !state.pausebutton?.boolean) {
       this.ctx.save();
       this.ctx.translate((Math.random() - 0.5) * state.shakeIntensity, (Math.random() - 0.5) * state.shakeIntensity);
     }
 
-    if (state.gameState === GameState.START_OVERLAY) {
+    if (state.gameState === GameState.LOADING) {
+      this.drawLoadingScreen(state);
+    } else if (state.gameState === GameState.START_OVERLAY) {
       this.drawStartOverlay(state);
     } else if (state.gameState === GameState.MENU) {
       this.drawMenu(state, images);
@@ -23,9 +25,65 @@ export class GameRenderer {
       this.drawGame(state, images, loadedAttackImages);
     }
 
-    if (state.shakeIntensity > 0.5) {
+    if (state.shakeIntensity > 0.5 && !state.accessibility?.lowEndMode && !state.pausebutton?.boolean) {
       this.ctx.restore();
     }
+  }
+
+  private drawLoadingScreen(state: any) {
+    // Dark background
+    this.ctx.fillStyle = "#0c0d14";
+    this.ctx.fillRect(0, 0, state.width, state.height);
+
+    // Title
+    this.ctx.fillStyle = COLORS.cyan;
+    this.ctx.font = "bold 38px 'Orbitron'";
+    this.ctx.textAlign = "center";
+    this.ctx.fillText("DEFEND YOUR VILLAGE", state.width / 2, state.height / 2 - 60);
+
+    // Loading status text
+    this.ctx.fillStyle = "#A0AEC0";
+    this.ctx.font = "14px 'Silkscreen', monospace";
+    this.ctx.fillText(state.loadingStatusText, state.width / 2, state.height / 2 - 15);
+
+    // Outer progress bar track
+    const barW = 400;
+    const barH = 22;
+    const barX = (state.width - barW) / 2;
+    const barY = state.height / 2 + 15;
+
+    this.ctx.fillStyle = "rgba(255, 255, 255, 0.08)";
+    this.ctx.strokeStyle = COLORS.cyan;
+    this.ctx.lineWidth = 2;
+    this.ctx.beginPath();
+    (this.ctx as any).roundRect(barX, barY, barW, barH, 6);
+    this.ctx.fill();
+    this.ctx.stroke();
+
+    // Inner progress bar fill
+    const progress = Math.min(Math.max(state.loadingProgress, 0), 1);
+    if (progress > 0) {
+      const fillW = Math.max(12, (barW - 6) * progress);
+      const grad = this.ctx.createLinearGradient(barX, barY, barX + barW, barY);
+      grad.addColorStop(0, COLORS.cyan);
+      grad.addColorStop(1, "#38EF7D");
+      this.ctx.fillStyle = grad;
+      this.ctx.beginPath();
+      (this.ctx as any).roundRect(barX + 3, barY + 3, fillW, barH - 6, 4);
+      this.ctx.fill();
+    }
+
+    // Percentage text inside bar
+    const pctText = `${Math.round(progress * 100)}%`;
+    this.ctx.fillStyle = "#FFFFFF";
+    this.ctx.font = "bold 13px 'Orbitron'";
+    this.ctx.fillText(pctText, state.width / 2, barY + 16);
+
+    // Subtext hint
+    this.ctx.fillStyle = "#718096";
+    this.ctx.font = "12px 'Silkscreen'";
+    this.ctx.fillText("OPTIMIZING ASSETS FOR LOW-END & HIGH PERFORMANCE", state.width / 2, state.height / 2 + 75);
+    this.ctx.textAlign = "start";
   }
 
   private drawStartOverlay(state: any) {
@@ -108,34 +166,204 @@ export class GameRenderer {
   }
 
   private drawSettings(state: any) {
-    this.ctx.fillStyle = "rgba(0, 0, 0, 0.95)";
-    this.ctx.fillRect(0, 0, state.width, state.height);
-    this.ctx.fillStyle = "white";
-    this.ctx.font = "bold 45px 'Orbitron'";
-    this.ctx.textAlign = "center";
-    this.ctx.fillText("AUDIO SETTINGS", state.width / 2, 100);
-    
-    this.ctx.font = "20px 'Silkscreen'";
-    this.ctx.fillStyle = COLORS.cyan; 
-    
-    // SFX
-    this.ctx.textAlign = "right";
-    this.ctx.fillText("SOUND EFFECTS", 380, 208);
-    this.drawStyledButton("-", state.volDownSFX);
-    this.ctx.fillStyle = "white"; this.ctx.textAlign = "center";
-    this.ctx.fillText(Math.round(state.soundManager.sfxVolume * 100) + "%", 500, 208);
-    this.drawStyledButton("+", state.volUpSFX);
+    const W = state.width, H = state.height;
+    const sm = state.soundManager;
 
-    // BGM
-    this.ctx.fillStyle = COLORS.cyan; this.ctx.textAlign = "right";
-    this.ctx.fillText("MUSIC VOLUME", 380, 268);
-    this.drawStyledButton("-", state.volDownBGM);
-    this.ctx.fillStyle = "white"; this.ctx.textAlign = "center";
-    this.ctx.fillText(Math.round(state.soundManager.bgmVolume * 100) + "%", 500, 268);
-    this.drawStyledButton("+", state.volUpBGM);
+    // Blurred dark background
+    this.ctx.fillStyle = "rgba(6, 8, 18, 0.97)";
+    this.ctx.fillRect(0, 0, W, H);
 
+    // ── Title ──
+    this.ctx.save();
     this.ctx.textAlign = "center";
-    this.drawStyledButton("Confirm", state.settingsBackButton);
+    this.ctx.fillStyle = "#ffffff";
+    this.ctx.font = "bold 30px 'Orbitron'";
+    this.ctx.fillText("SETTINGS", W / 2, 48);
+    // Thin cyan underline
+    this.ctx.strokeStyle = "rgba(37, 180, 218, 0.5)";
+    this.ctx.lineWidth = 1.5;
+    this.ctx.beginPath();
+    this.ctx.moveTo(W / 2 - 100, 56); this.ctx.lineTo(W / 2 + 100, 56);
+    this.ctx.stroke();
+    this.ctx.restore();
+
+    // ── Layout: two cards side by side ──
+    const cardY = 72, cardH = 240, gap = 16;
+    const totalW = W - 80;
+    const cardW = (totalW - gap) / 2;
+    const leftX = 40, rightX = leftX + cardW + gap;
+
+    // Helper: draw a frosted card
+    const drawCard = (x: number, y: number, w: number, h: number, label: string) => {
+      this.ctx.save();
+      this.ctx.fillStyle = "rgba(20, 28, 46, 0.9)";
+      (this.ctx as any).roundRect(x, y, w, h, 10);
+      this.ctx.fill();
+      this.ctx.strokeStyle = "rgba(255,255,255,0.08)";
+      this.ctx.lineWidth = 1;
+      (this.ctx as any).roundRect(x, y, w, h, 10);
+      this.ctx.stroke();
+      // Card label tab
+      this.ctx.fillStyle = COLORS.cyan;
+      this.ctx.font = "bold 10px 'Orbitron'";
+      this.ctx.textAlign = "left";
+      this.ctx.fillText(label, x + 14, y + 18);
+      // Tab underline
+      this.ctx.strokeStyle = "rgba(37,180,218,0.3)";
+      this.ctx.lineWidth = 1;
+      this.ctx.beginPath();
+      this.ctx.moveTo(x + 14, y + 24); this.ctx.lineTo(x + w - 14, y + 24);
+      this.ctx.stroke();
+      this.ctx.restore();
+    };
+
+    drawCard(leftX, cardY, cardW, cardH, "AUDIO");
+    drawCard(rightX, cardY, cardW, cardH, "ACCESSIBILITY");
+
+    // ── AUDIO CARD: Volume rows ──
+    const drawVolumeRow = (label: string, value: number, rowY: number, downBtn: any, upBtn: any) => {
+      const rowX = leftX + 14;
+      const rowW = cardW - 28;
+
+      this.ctx.save();
+      // Row label
+      this.ctx.fillStyle = "rgba(200,215,230,0.8)";
+      this.ctx.font = "bold 11px 'Orbitron'";
+      this.ctx.textAlign = "left";
+      this.ctx.fillText(label, rowX, rowY);
+
+      // Volume track background
+      const trackX = rowX, trackY = rowY + 6, trackW = rowW - 84, trackH = 6;
+      this.ctx.fillStyle = "rgba(255,255,255,0.08)";
+      (this.ctx as any).roundRect(trackX, trackY, trackW, trackH, 3);
+      this.ctx.fill();
+
+      // Volume fill
+      const fillW = value * trackW;
+      if (fillW > 0) {
+        const grad = this.ctx.createLinearGradient(trackX, 0, trackX + trackW, 0);
+        grad.addColorStop(0, COLORS.cyan);
+        grad.addColorStop(1, "#38EF7D");
+        this.ctx.fillStyle = grad;
+        (this.ctx as any).roundRect(trackX, trackY, fillW, trackH, 3);
+        this.ctx.fill();
+        // Gloss
+        this.ctx.fillStyle = "rgba(255,255,255,0.25)";
+        (this.ctx as any).roundRect(trackX, trackY, fillW, 3, [3,3,0,0]);
+        this.ctx.fill();
+      }
+      // Track border
+      this.ctx.strokeStyle = "rgba(255,255,255,0.1)";
+      this.ctx.lineWidth = 1;
+      (this.ctx as any).roundRect(trackX, trackY, trackW, trackH, 3);
+      this.ctx.stroke();
+
+      // Percent label
+      this.ctx.fillStyle = "#ffffff";
+      this.ctx.font = "bold 12px 'Orbitron'";
+      this.ctx.textAlign = "center";
+      this.ctx.fillText(Math.round(value * 100) + "%", trackX + trackW + 28, rowY + 2);
+
+      // – button
+      downBtn.x = leftX + cardW - 68; downBtn.y = rowY - 11; downBtn.width = 26; downBtn.height = 20;
+      const downHover = downBtn.hover;
+      this.ctx.fillStyle = downHover ? "rgba(255,255,255,0.2)" : "rgba(255,255,255,0.07)";
+      (this.ctx as any).roundRect(downBtn.x, downBtn.y, downBtn.width, downBtn.height, 5);
+      this.ctx.fill();
+      this.ctx.strokeStyle = downHover ? "rgba(255,255,255,0.5)" : "rgba(255,255,255,0.15)";
+      this.ctx.lineWidth = 1;
+      (this.ctx as any).roundRect(downBtn.x, downBtn.y, downBtn.width, downBtn.height, 5);
+      this.ctx.stroke();
+      this.ctx.fillStyle = "#fff"; this.ctx.font = "bold 14px 'Orbitron'"; this.ctx.textAlign = "center";
+      this.ctx.fillText("−", downBtn.x + downBtn.width / 2, downBtn.y + 14);
+
+      // + button
+      upBtn.x = leftX + cardW - 36; upBtn.y = rowY - 11; upBtn.width = 26; upBtn.height = 20;
+      const upHover = upBtn.hover;
+      this.ctx.fillStyle = upHover ? "rgba(255,255,255,0.2)" : "rgba(255,255,255,0.07)";
+      (this.ctx as any).roundRect(upBtn.x, upBtn.y, upBtn.width, upBtn.height, 5);
+      this.ctx.fill();
+      this.ctx.strokeStyle = upHover ? "rgba(255,255,255,0.5)" : "rgba(255,255,255,0.15)";
+      (this.ctx as any).roundRect(upBtn.x, upBtn.y, upBtn.width, upBtn.height, 5);
+      this.ctx.stroke();
+      this.ctx.fillStyle = "#fff"; this.ctx.font = "bold 14px 'Orbitron'"; this.ctx.textAlign = "center";
+      this.ctx.fillText("+", upBtn.x + upBtn.width / 2, upBtn.y + 14);
+
+      this.ctx.restore();
+    };
+
+    drawVolumeRow("SFX VOLUME",   sm.sfxVolume, cardY + 52,  state.volDownSFX, state.volUpSFX);
+    drawVolumeRow("MUSIC VOLUME", sm.bgmVolume, cardY + 110, state.volDownBGM, state.volUpBGM);
+
+    // Audio note
+    this.ctx.save();
+    this.ctx.fillStyle = "rgba(150,165,180,0.5)";
+    this.ctx.font = "9px 'Silkscreen'";
+    this.ctx.textAlign = "left";
+    this.ctx.fillText("Click canvas first to enable audio", leftX + 14, cardY + 148);
+    this.ctx.restore();
+
+    // ── ACCESSIBILITY CARD: Toggle rows ──
+    const drawToggleRow = (label: string, sublabel: string, value: boolean, btn: any, rowY: number) => {
+      const rowX = rightX + 14;
+      const rowW = cardW - 28;
+
+      this.ctx.save();
+      // Row separator
+      if (rowY > cardY + 35) {
+        this.ctx.strokeStyle = "rgba(255,255,255,0.05)";
+        this.ctx.lineWidth = 1;
+        this.ctx.beginPath();
+        this.ctx.moveTo(rowX, rowY - 10); this.ctx.lineTo(rowX + rowW, rowY - 10);
+        this.ctx.stroke();
+      }
+
+      // Label
+      this.ctx.fillStyle = "rgba(210,220,230,0.9)";
+      this.ctx.font = "bold 11px 'Orbitron'";
+      this.ctx.textAlign = "left";
+      this.ctx.fillText(label, rowX, rowY + 4);
+
+      // Sub-label
+      this.ctx.fillStyle = "rgba(140,155,170,0.6)";
+      this.ctx.font = "9px 'Silkscreen'";
+      this.ctx.fillText(sublabel, rowX, rowY + 18);
+
+      // Toggle pill
+      const pillW = 58, pillH = 22;
+      btn.x = rightX + cardW - pillW - 14;
+      btn.y = rowY - 4;
+      btn.width = pillW;
+      btn.height = pillH;
+
+      // Pill background
+      this.ctx.fillStyle = value ? "rgba(37, 210, 140, 0.25)" : "rgba(255,255,255,0.06)";
+      (this.ctx as any).roundRect(btn.x, btn.y, pillW, pillH, 11);
+      this.ctx.fill();
+      this.ctx.strokeStyle = value ? "rgba(37,210,140,0.6)" : "rgba(255,255,255,0.12)";
+      this.ctx.lineWidth = 1;
+      (this.ctx as any).roundRect(btn.x, btn.y, pillW, pillH, 11);
+      this.ctx.stroke();
+
+      // Pill label
+      this.ctx.fillStyle = value ? "#40DCA0" : "rgba(180,195,210,0.6)";
+      this.ctx.font = "bold 10px 'Orbitron'";
+      this.ctx.textAlign = "center";
+      this.ctx.fillText(value ? "ON" : "OFF", btn.x + pillW / 2, btn.y + 15);
+
+      this.ctx.restore();
+    };
+
+    drawToggleRow("LOW-END MODE",     "Disables FX & particles",       state.accessibility.lowEndMode,    state.toggleLowEndBtn,    cardY + 50);
+    drawToggleRow("HIGH CONTRAST",    "Brighter HUD elements",         state.accessibility.highContrast,  state.toggleContrastBtn,  cardY + 120);
+    drawToggleRow("REDUCED MOTION",   "Removes floating text motion",  state.accessibility.reducedMotion, state.toggleMotionBtn,    cardY + 190);
+
+    // ── Save & Back button ──
+    state.settingsBackButton.x = W / 2 - 110;
+    state.settingsBackButton.y = cardY + cardH + 22;
+    state.settingsBackButton.width = 220;
+    state.settingsBackButton.height = 44;
+    this.drawStyledButton("← SAVE & BACK", state.settingsBackButton);
   }
 
   private drawGame(state: any, images: { [key: string]: HTMLImageElement }, loadedAttackImages: HTMLImageElement[]) {
@@ -222,56 +450,227 @@ export class GameRenderer {
   }
 
   private drawVillageHealthBar(state: any) {
-    let barX, barY, barW, barH = 20;
+    const hp = state.town.health;
+    const maxHp = state.town.maxHealth;
+    const pct = Math.max(0, Math.min(1, hp / maxHp));
+    const isLow = pct < 0.35;
+    const isCritical = pct < 0.15;
+    const pulse = isCritical ? Math.abs(Math.sin(Date.now() / 250)) : 0;
+
     if (state.map === 1) {
-      barX = state.town.x; barY = state.town.y - 25; barW = state.town.w;
-    } else {
-      barX = state.width - 220; barY = 20; barW = 200;
-    }
+      // ── MAP 1: Floating totem panel anchored above the village ──
+      const panelW = 220;
+      const panelH = 52;
+      const panelX = state.town.x + state.town.w / 2 - panelW / 2;
+      const panelY = state.town.y - 72;
 
-    // Modern Dark Matte Frame
-    this.ctx.fillStyle = "rgba(10, 15, 20, 0.85)";
-    this.ctx.fillRect(barX, barY, barW, barH);
-    this.ctx.strokeStyle = "rgba(255, 255, 255, 0.15)";
-    this.ctx.lineWidth = 1;
-    this.ctx.strokeRect(barX, barY, barW, barH);
-    
-    // Emerald Vitality Gradient
-    let villageGradient = this.ctx.createLinearGradient(barX, 0, barX + barW, 0);
-    villageGradient.addColorStop(0, "#00F260"); 
-    villageGradient.addColorStop(1, "#0575E6");
-    
-    const healthWidth = (state.town.health / state.town.maxHealth) * (barW - 4);
-    this.ctx.fillStyle = villageGradient;
-    this.ctx.fillRect(barX + 2, barY + 2, healthWidth, barH - 4);
+      this.ctx.save();
 
-    // Glossy Overlay Highlight
-    const gloss = this.ctx.createLinearGradient(0, barY + 2, 0, barY + 10);
-    gloss.addColorStop(0, "rgba(255, 255, 255, 0.4)");
-    gloss.addColorStop(1, "rgba(255, 255, 255, 0)");
-    this.ctx.fillStyle = gloss;
-    this.ctx.fillRect(barX + 2, barY + 2, healthWidth, (barH - 4) / 2);
+      // Drop shadow
+      this.ctx.shadowColor = "rgba(0,0,0,0.7)";
+      this.ctx.shadowBlur = 12;
+      this.ctx.shadowOffsetY = 4;
 
-    // Health Markers (20% segments)
-    this.ctx.strokeStyle = "rgba(0, 0, 0, 0.2)";
-    this.ctx.lineWidth = 1;
-    for (let i = 1; i < 5; i++) {
-      const segmentX = barX + (barW * (i * 0.2));
-      this.ctx.beginPath();
-      this.ctx.moveTo(segmentX, barY + 2);
-      this.ctx.lineTo(segmentX, barY + barH - 2);
+      // Panel background
+      this.ctx.fillStyle = "rgba(8, 12, 22, 0.92)";
+      (this.ctx as any).roundRect(panelX, panelY, panelW, panelH, 8);
+      this.ctx.fill();
+      this.ctx.shadowBlur = 0; this.ctx.shadowOffsetY = 0;
+
+      // Panel border — glows red when critical
+      this.ctx.strokeStyle = isCritical
+        ? `rgba(255, 60, 60, ${0.5 + pulse * 0.5})`
+        : isLow ? "rgba(255, 160, 30, 0.6)" : "rgba(80, 220, 160, 0.4)";
+      this.ctx.lineWidth = 1.5;
+      (this.ctx as any).roundRect(panelX, panelY, panelW, panelH, 8);
       this.ctx.stroke();
+
+      // Connector stem (visual anchor to the village)
+      const stemX = panelX + panelW / 2;
+      this.ctx.strokeStyle = "rgba(255,255,255,0.12)";
+      this.ctx.lineWidth = 1;
+      this.ctx.setLineDash([3, 3]);
+      this.ctx.beginPath();
+      this.ctx.moveTo(stemX, panelY + panelH);
+      this.ctx.lineTo(stemX, state.town.y - 4);
+      this.ctx.stroke();
+      this.ctx.setLineDash([]);
+
+      // Shield icon (drawn with canvas primitives)
+      const iconX = panelX + 14; const iconY = panelY + panelH / 2;
+      this.ctx.fillStyle = isCritical ? `rgba(255,80,80,${0.7 + pulse * 0.3})` : isLow ? "#FFA020" : "#40DCA0";
+      this.ctx.beginPath();
+      this.ctx.moveTo(iconX, iconY - 9);
+      this.ctx.lineTo(iconX + 7, iconY - 6);
+      this.ctx.lineTo(iconX + 7, iconY + 1);
+      this.ctx.quadraticCurveTo(iconX + 7, iconY + 8, iconX, iconY + 11);
+      this.ctx.quadraticCurveTo(iconX - 7, iconY + 8, iconX - 7, iconY + 1);
+      this.ctx.lineTo(iconX - 7, iconY - 6);
+      this.ctx.closePath();
+      this.ctx.fill();
+
+      // Label
+      this.ctx.fillStyle = "rgba(200,215,230,0.85)";
+      this.ctx.font = "bold 9px 'Orbitron'";
+      this.ctx.textAlign = "left";
+      this.ctx.fillText("VILLAGE", panelX + 28, panelY + 17);
+
+      // HP readout
+      const hpText = `${Math.ceil(hp)} / ${maxHp}`;
+      this.ctx.fillStyle = isCritical ? `rgba(255,100,100,${0.8 + pulse * 0.2})` : "#ffffff";
+      this.ctx.font = `bold 13px 'Orbitron'`;
+      this.ctx.fillText(hpText, panelX + 28, panelY + 32);
+
+      // Bar track
+      const bx = panelX + 28; const by = panelY + 37;
+      const bw = panelW - 44; const bh = 7;
+      this.ctx.fillStyle = "rgba(255,255,255,0.08)";
+      (this.ctx as any).roundRect(bx, by, bw, bh, 3);
+      this.ctx.fill();
+
+      // Bar fill gradient
+      const barColor = isCritical
+        ? (pulse > 0.5 ? "#FF3C3C" : "#CC0000")
+        : isLow ? "#FFA020" : "#40DCA0";
+      const fillW = Math.max(0, pct * bw);
+      if (fillW > 0) {
+        const grad = this.ctx.createLinearGradient(bx, 0, bx + bw, 0);
+        grad.addColorStop(0, barColor);
+        grad.addColorStop(1, isCritical ? "#FF8080" : isLow ? "#FFD060" : "#00F5A0");
+        this.ctx.fillStyle = grad;
+        (this.ctx as any).roundRect(bx, by, fillW, bh, 3);
+        this.ctx.fill();
+
+        // Gloss sheen on bar
+        this.ctx.fillStyle = "rgba(255,255,255,0.25)";
+        (this.ctx as any).roundRect(bx, by, fillW, Math.ceil(bh / 2), [3, 3, 0, 0]);
+        this.ctx.fill();
+      }
+
+      // Bar border
+      this.ctx.strokeStyle = "rgba(255,255,255,0.15)";
+      this.ctx.lineWidth = 1;
+      (this.ctx as any).roundRect(bx, by, bw, bh, 3);
+      this.ctx.stroke();
+
+      // Segment ticks (4 ticks = 5 segments of 20%)
+      this.ctx.strokeStyle = "rgba(0,0,0,0.35)";
+      this.ctx.lineWidth = 1;
+      for (let i = 1; i < 5; i++) {
+        const tx = bx + bw * (i / 5);
+        this.ctx.beginPath(); this.ctx.moveTo(tx, by + 1); this.ctx.lineTo(tx, by + bh - 1); this.ctx.stroke();
+      }
+
+      this.ctx.restore();
+
+    } else {
+      // ── MAP 2/3: Compact top-right HUD panel ──
+      const panelW = 190;
+      const panelH = 50;
+      const panelX = state.width - panelW - 12;
+      const panelY = 12;
+
+      this.ctx.save();
+
+      // Panel shadow
+      this.ctx.shadowColor = "rgba(0,0,0,0.6)";
+      this.ctx.shadowBlur = 10;
+      this.ctx.shadowOffsetY = 3;
+
+      // Panel background
+      this.ctx.fillStyle = "rgba(8, 12, 22, 0.92)";
+      (this.ctx as any).roundRect(panelX, panelY, panelW, panelH, 7);
+      this.ctx.fill();
+      this.ctx.shadowBlur = 0; this.ctx.shadowOffsetY = 0;
+
+      // Panel border
+      this.ctx.strokeStyle = isCritical
+        ? `rgba(255,60,60,${0.5 + pulse * 0.5})`
+        : isLow ? "rgba(255,160,30,0.55)" : "rgba(80,220,160,0.35)";
+      this.ctx.lineWidth = 1.5;
+      (this.ctx as any).roundRect(panelX, panelY, panelW, panelH, 7);
+      this.ctx.stroke();
+
+      // Shield icon
+      const iconX = panelX + 16; const iconY = panelY + panelH / 2;
+      this.ctx.fillStyle = isCritical ? `rgba(255,80,80,${0.7 + pulse * 0.3})` : isLow ? "#FFA020" : "#40DCA0";
+      this.ctx.beginPath();
+      this.ctx.moveTo(iconX, iconY - 9);
+      this.ctx.lineTo(iconX + 7, iconY - 6);
+      this.ctx.lineTo(iconX + 7, iconY + 1);
+      this.ctx.quadraticCurveTo(iconX + 7, iconY + 7, iconX, iconY + 10);
+      this.ctx.quadraticCurveTo(iconX - 7, iconY + 7, iconX - 7, iconY + 1);
+      this.ctx.lineTo(iconX - 7, iconY - 6);
+      this.ctx.closePath();
+      this.ctx.fill();
+
+      // Divider line
+      this.ctx.strokeStyle = "rgba(255,255,255,0.08)";
+      this.ctx.lineWidth = 1;
+      this.ctx.beginPath();
+      this.ctx.moveTo(panelX + 30, panelY + 6);
+      this.ctx.lineTo(panelX + 30, panelY + panelH - 6);
+      this.ctx.stroke();
+
+      // Label row
+      this.ctx.fillStyle = "rgba(180,200,220,0.7)";
+      this.ctx.font = "bold 8px 'Orbitron'";
+      this.ctx.textAlign = "left";
+      this.ctx.fillText("VILLAGE DEFENSE", panelX + 37, panelY + 17);
+
+      // HP readout
+      const hpStr = `${Math.ceil(hp)} / ${maxHp}`;
+      this.ctx.fillStyle = isCritical ? `rgba(255,100,100,${0.85 + pulse * 0.15})` : "#ffffff";
+      this.ctx.font = "bold 13px 'Orbitron'";
+      this.ctx.fillText(hpStr, panelX + 37, panelY + 32);
+
+      // Bar track
+      const bx = panelX + 37; const by = panelY + 37;
+      const bw = panelW - 47; const bh = 6;
+      this.ctx.fillStyle = "rgba(255,255,255,0.07)";
+      (this.ctx as any).roundRect(bx, by, bw, bh, 3);
+      this.ctx.fill();
+
+      // Bar fill
+      const fillW = Math.max(0, pct * bw);
+      if (fillW > 0) {
+        const grad = this.ctx.createLinearGradient(bx, 0, bx + bw, 0);
+        grad.addColorStop(0, isCritical ? "#CC0000" : isLow ? "#FFA020" : "#40DCA0");
+        grad.addColorStop(1, isCritical ? "#FF6060" : isLow ? "#FFD060" : "#00F5A0");
+        this.ctx.fillStyle = grad;
+        (this.ctx as any).roundRect(bx, by, fillW, bh, 3);
+        this.ctx.fill();
+
+        // Gloss
+        this.ctx.fillStyle = "rgba(255,255,255,0.22)";
+        (this.ctx as any).roundRect(bx, by, fillW, Math.ceil(bh / 2), [3, 3, 0, 0]);
+        this.ctx.fill();
+      }
+
+      // Bar border
+      this.ctx.strokeStyle = "rgba(255,255,255,0.12)";
+      this.ctx.lineWidth = 1;
+      (this.ctx as any).roundRect(bx, by, bw, bh, 3);
+      this.ctx.stroke();
+
+      // Segment ticks
+      this.ctx.strokeStyle = "rgba(0,0,0,0.3)";
+      this.ctx.lineWidth = 1;
+      for (let i = 1; i < 5; i++) {
+        const tx = bx + bw * (i / 5);
+        this.ctx.beginPath(); this.ctx.moveTo(tx, by + 1); this.ctx.lineTo(tx, by + bh - 1); this.ctx.stroke();
+      }
+
+      // Critical pulse ring around panel
+      if (isCritical) {
+        this.ctx.strokeStyle = `rgba(255,60,60,${pulse * 0.4})`;
+        this.ctx.lineWidth = 3;
+        (this.ctx as any).roundRect(panelX - 2, panelY - 2, panelW + 4, panelH + 4, 9);
+        this.ctx.stroke();
+      }
+
+      this.ctx.restore();
     }
-    
-    // RESTORED TEXT WITH BACKGROUND PILL
-    this.ctx.fillStyle = "rgba(0, 0, 0, 0.65)";
-    this.ctx.fillRect(barX + barW / 2 - 75, barY - 24, 150, 18);
-    
-    this.ctx.fillStyle = "white"; 
-    this.ctx.font = "bold 14px 'Orbitron'"; 
-    this.ctx.textAlign = "center";
-    this.ctx.fillText("VILLAGE DEFENSE", barX + barW / 2, barY - 10);
-    this.ctx.textAlign = "start";
   }
 
   private drawTown(state: any, images: { [key: string]: HTMLImageElement }) {
@@ -503,12 +902,107 @@ export class GameRenderer {
   }
 
   private drawPauseOverlay(state: any) {
-    this.ctx.fillStyle = "rgba(0, 0, 0, 0.64)"; this.ctx.fillRect(0, 0, state.width, state.height);
-    this.ctx.fillStyle = "white"; this.ctx.font = "bold 50px 'Orbitron'"; this.ctx.textAlign = "center";
-    this.ctx.fillText("Paused", state.width / 2, state.height / 2 - 20);
-    this.ctx.font = "18px 'Silkscreen'"; this.ctx.fillText("Click anywhere to continue", state.width / 2, state.height / 2 + 40);
-    this.drawStyledButton("Quit to Menu", state.backtomenu_ui);
-    this.ctx.textAlign = "start";
+    const W = state.width, H = state.height;
+
+    // Dim the game behind
+    this.ctx.fillStyle = "rgba(0, 0, 0, 0.72)";
+    this.ctx.fillRect(0, 0, W, H);
+
+    // ── Frosted panel ──
+    const panelW = 340, panelH = 280;
+    const panelX = W / 2 - panelW / 2, panelY = H / 2 - panelH / 2 - 10;
+
+    this.ctx.save();
+    this.ctx.shadowColor = "rgba(0,0,0,0.8)";
+    this.ctx.shadowBlur = 30;
+    this.ctx.shadowOffsetY = 8;
+    this.ctx.fillStyle = "rgba(10, 14, 26, 0.96)";
+    (this.ctx as any).roundRect(panelX, panelY, panelW, panelH, 14);
+    this.ctx.fill();
+    this.ctx.shadowBlur = 0; this.ctx.shadowOffsetY = 0;
+
+    // Panel border
+    this.ctx.strokeStyle = "rgba(255,255,255,0.1)";
+    this.ctx.lineWidth = 1.5;
+    (this.ctx as any).roundRect(panelX, panelY, panelW, panelH, 14);
+    this.ctx.stroke();
+    this.ctx.restore();
+
+    // ── Header ──
+    this.ctx.save();
+    this.ctx.textAlign = "center";
+    this.ctx.fillStyle = "#ffffff";
+    this.ctx.font = "bold 34px 'Orbitron'";
+    this.ctx.fillText("PAUSED", W / 2, panelY + 48);
+
+    // Thin divider under heading
+    this.ctx.strokeStyle = "rgba(255,255,255,0.1)";
+    this.ctx.lineWidth = 1;
+    this.ctx.beginPath();
+    this.ctx.moveTo(panelX + 24, panelY + 60);
+    this.ctx.lineTo(panelX + panelW - 24, panelY + 60);
+    this.ctx.stroke();
+    this.ctx.restore();
+
+    // ── Buttons (Resume / Settings / Quit) ──
+    const btnW = panelW - 48, btnH = 44;
+    const btnX = panelX + 24;
+
+    // Resume button — highlighted
+    state.resumeButton.x = btnX;
+    state.resumeButton.y = panelY + 76;
+    state.resumeButton.width = btnW;
+    state.resumeButton.height = btnH;
+    this.ctx.save();
+    const resumeGrad = this.ctx.createLinearGradient(btnX, 0, btnX + btnW, 0);
+    resumeGrad.addColorStop(0, state.resumeButton.hover ? "rgba(37,180,218,0.5)" : "rgba(37,180,218,0.25)");
+    resumeGrad.addColorStop(1, state.resumeButton.hover ? "rgba(56,239,125,0.4)" : "rgba(56,239,125,0.15)");
+    this.ctx.fillStyle = resumeGrad;
+    (this.ctx as any).roundRect(btnX, state.resumeButton.y, btnW, btnH, 8);
+    this.ctx.fill();
+    this.ctx.strokeStyle = state.resumeButton.hover ? "rgba(37,210,140,0.8)" : "rgba(37,210,140,0.35)";
+    this.ctx.lineWidth = 1.5;
+    (this.ctx as any).roundRect(btnX, state.resumeButton.y, btnW, btnH, 8);
+    this.ctx.stroke();
+    this.ctx.fillStyle = state.resumeButton.hover ? "#ffffff" : "rgba(200,235,220,0.9)";
+    this.ctx.font = "bold 14px 'Orbitron'";
+    this.ctx.textAlign = "center";
+    this.ctx.fillText("▶  RESUME", W / 2, state.resumeButton.y + 28);
+    this.ctx.restore();
+
+    // Settings button
+    state.pauseSettingsButton.x = btnX;
+    state.pauseSettingsButton.y = panelY + 132;
+    state.pauseSettingsButton.width = btnW;
+    state.pauseSettingsButton.height = btnH;
+    this.drawStyledButton("⚙  SETTINGS", state.pauseSettingsButton);
+
+    // Quit button
+    state.backtomenu_ui.x = btnX;
+    state.backtomenu_ui.y = panelY + 188;
+    state.backtomenu_ui.width = btnW;
+    state.backtomenu_ui.height = btnH;
+    this.ctx.save();
+    this.ctx.fillStyle = state.backtomenu_ui.hover ? "rgba(200,40,40,0.25)" : "rgba(255,255,255,0.06)";
+    (this.ctx as any).roundRect(btnX, state.backtomenu_ui.y, btnW, btnH, 8);
+    this.ctx.fill();
+    this.ctx.strokeStyle = state.backtomenu_ui.hover ? "rgba(220,60,60,0.7)" : "rgba(255,255,255,0.1)";
+    this.ctx.lineWidth = 1.5;
+    (this.ctx as any).roundRect(btnX, state.backtomenu_ui.y, btnW, btnH, 8);
+    this.ctx.stroke();
+    this.ctx.fillStyle = state.backtomenu_ui.hover ? "#FF6060" : "rgba(200,180,180,0.7)";
+    this.ctx.font = "bold 14px 'Orbitron'";
+    this.ctx.textAlign = "center";
+    this.ctx.fillText("✕  QUIT TO MENU", W / 2, state.backtomenu_ui.y + 28);
+    this.ctx.restore();
+
+    // ESC hint
+    this.ctx.save();
+    this.ctx.fillStyle = "rgba(130,145,160,0.5)";
+    this.ctx.font = "9px 'Silkscreen'";
+    this.ctx.textAlign = "center";
+    this.ctx.fillText("Press ESC to resume", W / 2, panelY + panelH - 10);
+    this.ctx.restore();
   }
 
   private drawFiringBar(state: any) {

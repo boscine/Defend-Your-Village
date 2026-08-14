@@ -63,20 +63,43 @@ export class GameComponent implements AfterViewInit, OnDestroy {
       { name: 'buildingSmith', path: 'assets/background/Villagebuilding5.png' }
     ];
 
-    assets.forEach(asset => {
-      const img = new Image();
-      img.src = asset.path;
-      this.images[asset.name] = img;
-    });
-
     const attackPaths = [
       "assets/Enchantress/Attack_1.png",
       "assets/Enchantress/Attack_2.png",
       "assets/Enchantress/Attack_3.png"
     ];
 
+    const totalToLoad = assets.length + attackPaths.length;
+    this.logic.loadingTotal = totalToLoad;
+    this.logic.loadingLoaded = 0;
+    this.logic.loadingProgress = 0;
+    this.logic.gameState = GameState.LOADING;
+
+    const onAssetLoaded = (name: string) => {
+      this.logic.loadingLoaded++;
+      this.logic.loadingProgress = this.logic.loadingLoaded / totalToLoad;
+      this.logic.loadingStatusText = `Loaded asset ${this.logic.loadingLoaded} of ${totalToLoad}: ${name}`;
+      
+      if (this.logic.loadingLoaded >= totalToLoad) {
+        this.logic.loadingStatusText = "Preloading complete! Preparing battlefield...";
+        setTimeout(() => {
+          this.logic.gameState = GameState.START_OVERLAY;
+        }, 500);
+      }
+    };
+
+    assets.forEach(asset => {
+      const img = new Image();
+      img.onload = () => onAssetLoaded(asset.name);
+      img.onerror = () => onAssetLoaded(asset.name + ' (fallback)');
+      img.src = asset.path;
+      this.images[asset.name] = img;
+    });
+
     attackPaths.forEach((path, index) => {
       const img = new Image();
+      img.onload = () => onAssetLoaded(`attack_anim_${index + 1}`);
+      img.onerror = () => onAssetLoaded(`attack_anim_${index + 1}`);
       img.src = path;
       this.loadedAttackImages[index] = img;
     });
@@ -148,9 +171,14 @@ export class GameComponent implements AfterViewInit, OnDestroy {
       this.logic.volDownSFX.hover = this.checkInBounds(mx, my, this.logic.volDownSFX);
       this.logic.volUpBGM.hover = this.checkInBounds(mx, my, this.logic.volUpBGM);
       this.logic.volDownBGM.hover = this.checkInBounds(mx, my, this.logic.volDownBGM);
+      this.logic.toggleLowEndBtn.hover = this.checkInBounds(mx, my, this.logic.toggleLowEndBtn);
+      this.logic.toggleContrastBtn.hover = this.checkInBounds(mx, my, this.logic.toggleContrastBtn);
+      this.logic.toggleMotionBtn.hover = this.checkInBounds(mx, my, this.logic.toggleMotionBtn);
       this.logic.settingsBackButton.hover = this.checkInBounds(mx, my, this.logic.settingsBackButton);
     } else if (this.logic.gameState === GameState.PLAYING && this.logic.pausebutton.boolean) {
       this.logic.backtomenu_ui.hover = this.checkInBounds(mx, my, this.logic.backtomenu_ui);
+      this.logic.resumeButton.hover = this.checkInBounds(mx, my, this.logic.resumeButton);
+      this.logic.pauseSettingsButton.hover = this.checkInBounds(mx, my, this.logic.pauseSettingsButton);
     }
   }
 
@@ -165,7 +193,11 @@ export class GameComponent implements AfterViewInit, OnDestroy {
     } else if (this.logic.gameState === GameState.MENU) {
       if (this.checkInBounds(mx, my, this.logic.playButton)) { this.logic.soundManager.playMenuClick(); this.logic.resetGame(); }
       else if (this.checkInBounds(mx, my, this.logic.controlsButton)) { this.logic.soundManager.playMenuClick(); this.logic.gameState = GameState.CONTROLS; }
-      else if (this.checkInBounds(mx, my, this.logic.settingsButton)) { this.logic.soundManager.playMenuClick(); this.logic.gameState = GameState.SETTINGS; }
+      else if (this.checkInBounds(mx, my, this.logic.settingsButton)) {
+        this.logic.soundManager.playMenuClick();
+        this.logic.settingsPreviousState = GameState.MENU;
+        this.logic.gameState = GameState.SETTINGS;
+      }
     } else if (this.logic.gameState === GameState.CONTROLS) {
       if (this.checkInBounds(mx, my, this.logic.exitButton)) { this.logic.soundManager.playMenuClick(); this.logic.gameState = GameState.MENU; }
     } else if (this.logic.gameState === GameState.SETTINGS) {
@@ -174,15 +206,34 @@ export class GameComponent implements AfterViewInit, OnDestroy {
       else if (this.checkInBounds(mx, my, this.logic.volUpSFX)) { sm.playMenuClick(); sm.sfxVolume = Math.min(1, sm.sfxVolume + 0.1); }
       else if (this.checkInBounds(mx, my, this.logic.volDownBGM)) { sm.playMenuClick(); sm.bgmVolume = Math.max(0, sm.bgmVolume - 0.1); sm.updateVolumes(); }
       else if (this.checkInBounds(mx, my, this.logic.volUpBGM)) { sm.playMenuClick(); sm.bgmVolume = Math.min(1, sm.bgmVolume + 0.1); sm.updateVolumes(); }
-      else if (this.checkInBounds(mx, my, this.logic.settingsBackButton)) { sm.playMenuClick(); this.logic.gameState = GameState.MENU; }
+      else if (this.checkInBounds(mx, my, this.logic.toggleLowEndBtn)) { sm.playMenuClick(); this.logic.accessibility.lowEndMode = !this.logic.accessibility.lowEndMode; }
+      else if (this.checkInBounds(mx, my, this.logic.toggleContrastBtn)) { sm.playMenuClick(); this.logic.accessibility.highContrast = !this.logic.accessibility.highContrast; }
+      else if (this.checkInBounds(mx, my, this.logic.toggleMotionBtn)) { sm.playMenuClick(); this.logic.accessibility.reducedMotion = !this.logic.accessibility.reducedMotion; }
+      else if (this.checkInBounds(mx, my, this.logic.settingsBackButton)) {
+        sm.playMenuClick();
+        // Return to wherever settings was opened from
+        if (this.logic.settingsPreviousState === GameState.PLAYING) {
+          this.logic.gameState = GameState.PLAYING;
+          // Pause is still active — keep it paused
+        } else {
+          this.logic.gameState = GameState.MENU;
+        }
+      }
     } else if (this.logic.gameState === GameState.PLAYING && this.logic.pausebutton.boolean) {
-      if (this.checkInBounds(mx, my, this.logic.backtomenu_ui)) { 
+      if (this.checkInBounds(mx, my, this.logic.resumeButton)) {
+        this.logic.soundManager.playMenuClick();
+        this.logic.pausebutton.boolean = false;
+        this.logic.soundManager.startBGM();
+      } else if (this.checkInBounds(mx, my, this.logic.pauseSettingsButton)) {
+        this.logic.soundManager.playMenuClick();
+        this.logic.settingsPreviousState = GameState.PLAYING;
+        this.logic.gameState = GameState.SETTINGS;
+      } else if (this.checkInBounds(mx, my, this.logic.backtomenu_ui)) { 
         this.logic.soundManager.playMenuClick(); 
         this.logic.gameState = GameState.MENU; 
         this.logic.pausebutton.boolean = false; 
         this.logic.soundManager.startBGM(); 
       }
-      else { this.logic.pausebutton.boolean = false; this.logic.soundManager.startBGM(); }
     }
   }
 
