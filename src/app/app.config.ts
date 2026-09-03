@@ -1,7 +1,7 @@
-import { Routes } from '@angular/router';
-import { GameComponent } from './game/game.component';
+import { ApplicationConfig } from '@angular/core';
+import { provideRouter } from '@angular/router';
+import { routes } from './app.routes';
 
-export const routes: Routes = [
-  { path: '', component: GameComponent },
-  { path: '**', redirectTo: '' }
-];
+export const appConfig: ApplicationConfig = {
+  providers: [provideRouter(routes)]
+};
