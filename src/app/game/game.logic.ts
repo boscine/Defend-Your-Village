@@ -317,7 +317,6 @@ export class GameLogic {
               this.enemy.hurt[i] = true;
               this.enemy.hurtTimer[i] = 5;
               if (this.counter % 3 === 0) {
-                this.createBlood(this.enemy.x[i] + this.enemy.w / 2, this.enemy.y[i] + this.enemy.h / 2);
                 this.soundManager.playEnemyHit();
               }
               if (this.enemy.health[i] <= 0) this.killEnemy(i); 
@@ -330,7 +329,6 @@ export class GameLogic {
             this.enemy.move[i] = false; // Disable movement on hit
             this.shakeIntensity = 8; // Melee hit shake
             this.soundManager.playEnemyHit();
-            this.createBlood(this.enemy.x[i] + this.enemy.w / 2, this.enemy.y[i] + this.enemy.h / 2);
             if (this.enemy.health[i] <= 0) this.killEnemy(i);
             
             this.attackhitbox.hitsThisSwing++; // Counter hits during this cycle
