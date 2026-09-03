@@ -20,7 +20,3 @@ Thumbs.db
 # Test Scripts
 test_sim.js
 
-# Developer/Demo Components
-src/app/app.routes.ts
-src/app/game/magic-beam-demo.component.ts
-src/app/game/magic-beam.animation.ts
