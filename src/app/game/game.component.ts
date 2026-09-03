@@ -18,7 +18,6 @@ export class GameComponent implements AfterViewInit, OnDestroy {
   public logic: GameLogic = new GameLogic();
   private animationId?: number;
 
-  // Image assets
   private images: { [key: string]: HTMLImageElement } = {};
   private loadedAttackImages: HTMLImageElement[] = [];
 
@@ -124,7 +123,7 @@ export class GameComponent implements AfterViewInit, OnDestroy {
       }
       return; 
     }
-    if (event.repeat) return; // Prevent repeated triggers from holding keys
+    if (event.repeat) return;
     if (this.logic.gameState === GameState.PLAYING && !this.logic.pausebutton.boolean && !this.logic.gameover) {
       switch (event.key.toLowerCase()) {
         case "w": this.logic.moveUp = true; break; case "s": this.logic.moveDown = true; break;
@@ -136,7 +135,7 @@ export class GameComponent implements AfterViewInit, OnDestroy {
             if (this.logic.mana >= 100) {
               this.logic.attack2 = true; 
             } else {
-              this.logic.manaFlash = 1.0; // Trigger the "not enough mana" flash
+              this.logic.manaFlash = 1.0;
               this.logic.createFloatingText("NO MANA", this.logic.x + 10, this.logic.y - 10, '#FF4136');
             }
           } break;
@@ -183,7 +182,7 @@ export class GameComponent implements AfterViewInit, OnDestroy {
   }
 
   handleCanvasClick(event: MouseEvent) {
-    this.logic.soundManager.enable(); // Unlock audio context on user interaction
+    this.logic.soundManager.enable();
     const rect = this.canvasRef.nativeElement.getBoundingClientRect();
     const mx = event.clientX - rect.left; const my = event.clientY - rect.top;
     
@@ -211,10 +210,8 @@ export class GameComponent implements AfterViewInit, OnDestroy {
       else if (this.checkInBounds(mx, my, this.logic.toggleMotionBtn)) { sm.playMenuClick(); this.logic.accessibility.reducedMotion = !this.logic.accessibility.reducedMotion; }
       else if (this.checkInBounds(mx, my, this.logic.settingsBackButton)) {
         sm.playMenuClick();
-        // Return to wherever settings was opened from
         if (this.logic.settingsPreviousState === GameState.PLAYING) {
           this.logic.gameState = GameState.PLAYING;
-          // Pause is still active — keep it paused
         } else {
           this.logic.gameState = GameState.MENU;
         }
