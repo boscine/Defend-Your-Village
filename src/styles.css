@@ -8,6 +8,16 @@
   margin: 0;
   padding: 0;
   box-sizing: border-box;
+  /* Prevent long-press context menus and text selection during gameplay */
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+}
+
+html, body {
+  /* Prevent overscroll bounce on iOS that can scroll the page while playing */
+  overscroll-behavior: none;
+  overflow: hidden;
+  height: 100%;
 }
 
 body {
@@ -22,4 +32,8 @@ canvas {
     image-rendering: -webkit-optimize-contrast;
     image-rendering: pixelated;
     image-rendering: optimize-contrast;
+    /* Let Angular/JS handle all touch events on the canvas itself */
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
 }

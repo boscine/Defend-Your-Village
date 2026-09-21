@@ -51,6 +51,7 @@ canvas {
     image-rendering: crisp-edges;
 }
 
+/* Desktop keyboard hint footer */
 .footer {
     margin-top: 30px;
     text-align: center;
@@ -117,4 +118,251 @@ canvas {
 @keyframes fadeIn {
     from { opacity: 0; transform: translateY(-20px); }
     to { opacity: 1; transform: translateY(0); }
+}
+
+/* ═══════════════════════════════════════════════
+   MOBILE CONTROLS — hidden by default, shown
+   only on pointer: coarse (touch) devices.
+   ═══════════════════════════════════════════════ */
+
+/* Hide mobile controls on desktop / pointer devices */
+.mobile-controls {
+    display: none;
+}
+
+/* Hide keyboard hint on touch screens */
+@media (pointer: coarse) {
+    .desktop-only {
+        display: none;
+    }
+}
+
+/* ── Responsive canvas scaling ── */
+@media (max-width: 1100px) {
+    .game-wrapper {
+        padding: 8px;
+    }
+    .header {
+        margin-bottom: 10px;
+    }
+    .glow-text {
+        font-size: 1.6rem;
+        letter-spacing: 2px;
+    }
+    .viewport {
+        padding: 6px;
+    }
+    canvas {
+        /* Scale canvas to fit viewport width while keeping aspect ratio */
+        width: min(calc(100vw - 28px), 1000px);
+        height: auto;
+        aspect-ratio: 1000 / 400;
+    }
+}
+
+/* ── Touch device layout & on-screen controls ── */
+@media (pointer: coarse) {
+    .game-wrapper {
+        /* Extra bottom padding to prevent controls overlapping the viewport */
+        padding: 4px 4px 0 4px;
+        justify-content: flex-start;
+    }
+
+    .header {
+        margin-bottom: 6px;
+    }
+
+    .glow-text {
+        font-size: 1.2rem;
+        letter-spacing: 1px;
+    }
+
+    .viewport {
+        padding: 4px;
+        border-radius: 8px;
+        width: 100%;
+    }
+
+    .game-container {
+        width: 100%;
+    }
+
+    canvas {
+        /* Fill full viewport width; aspect ratio keeps height correct */
+        width: 100%;
+        height: auto;
+        aspect-ratio: 1000 / 400;
+    }
+
+    /* ── Mobile controls panel ── */
+    .mobile-controls {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        width: 100%;
+        padding: 8px 12px;
+        gap: 8px;
+        /* Fixed height zone below the game canvas */
+        min-height: 140px;
+        flex-shrink: 0;
+    }
+
+    /* ── D-pad layout ── */
+    .dpad {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 2px;
+    }
+
+    .dpad-middle-row {
+        display: flex;
+        align-items: center;
+        gap: 2px;
+    }
+
+    .dpad-center {
+        width: 44px;
+        height: 44px;
+        background: rgba(255, 255, 255, 0.04);
+        border-radius: 50%;
+    }
+
+    .dpad-btn {
+        width: 44px;
+        height: 44px;
+        border-radius: 8px;
+        border: 1.5px solid rgba(37, 180, 218, 0.5);
+        background: rgba(10, 25, 47, 0.85);
+        color: #25b4da;
+        font-size: 1.1rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        /* Hardware-accelerated touch response */
+        -webkit-tap-highlight-color: transparent;
+        touch-action: manipulation;
+        user-select: none;
+        -webkit-user-select: none;
+        transition: background 0.08s ease, transform 0.08s ease;
+    }
+
+    .dpad-btn:active {
+        background: rgba(37, 180, 218, 0.35);
+        transform: scale(0.92);
+    }
+
+    /* ── Action buttons (right cluster) ── */
+    .action-buttons {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        gap: 4px;
+    }
+
+    .action-top-row,
+    .action-mid-row,
+    .action-bottom-row {
+        display: flex;
+        gap: 6px;
+    }
+
+    .action-btn {
+        min-width: 58px;
+        height: 52px;
+        border-radius: 10px;
+        border: 1.5px solid rgba(255, 255, 255, 0.15);
+        background: rgba(10, 25, 47, 0.85);
+        color: #fff;
+        font-size: 1.2rem;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 1px;
+        cursor: pointer;
+        -webkit-tap-highlight-color: transparent;
+        touch-action: manipulation;
+        user-select: none;
+        -webkit-user-select: none;
+        transition: background 0.08s ease, transform 0.08s ease;
+    }
+
+    .btn-label {
+        font-family: 'Orbitron', sans-serif;
+        font-size: 0.45rem;
+        letter-spacing: 0.5px;
+        color: rgba(255, 255, 255, 0.7);
+        font-weight: 700;
+        line-height: 1;
+    }
+
+    /* Melee: accent red */
+    .btn-melee {
+        border-color: rgba(255, 0, 85, 0.6);
+        background: rgba(60, 0, 30, 0.85);
+        color: #ff4477;
+        min-width: 64px;
+    }
+    .btn-melee:active {
+        background: rgba(200, 0, 60, 0.5);
+        transform: scale(0.92);
+    }
+
+    /* Special beam: accent cyan */
+    .btn-special {
+        border-color: rgba(0, 210, 255, 0.6);
+        background: rgba(0, 30, 50, 0.85);
+        color: #00d2ff;
+        min-width: 64px;
+    }
+    .btn-special:active {
+        background: rgba(0, 100, 150, 0.5);
+        transform: scale(0.92);
+    }
+
+    /* Charge mana: accent gold */
+    .btn-charge {
+        border-color: rgba(255, 200, 30, 0.6);
+        background: rgba(40, 30, 0, 0.85);
+        color: #ffc81e;
+        min-width: 58px;
+    }
+    .btn-charge:active {
+        background: rgba(120, 80, 0, 0.5);
+        transform: scale(0.92);
+    }
+
+    /* Pause: subtle grey */
+    .btn-pause {
+        border-color: rgba(255, 255, 255, 0.25);
+        background: rgba(20, 20, 30, 0.85);
+        color: rgba(200, 200, 200, 0.9);
+        font-size: 0.9rem;
+        min-width: 58px;
+        height: 36px;
+    }
+    .btn-pause:active {
+        background: rgba(60, 60, 80, 0.5);
+        transform: scale(0.92);
+    }
+}
+
+/* ── Very small screens (old small phones) ── */
+@media (pointer: coarse) and (max-width: 400px) {
+    .dpad-btn {
+        width: 38px;
+        height: 38px;
+        font-size: 0.9rem;
+    }
+    .action-btn {
+        min-width: 50px;
+        height: 46px;
+        font-size: 1rem;
+    }
+    .mobile-controls {
+        min-height: 120px;
+        padding: 6px 8px;
+    }
 }

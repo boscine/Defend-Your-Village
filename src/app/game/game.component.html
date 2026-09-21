@@ -7,11 +7,15 @@
     <div class="game-container">
       <canvas #gameCanvas 
               (click)="handleCanvasClick($event)"
-              (mousemove)="handleMouseMove($event)"></canvas>
+              (mousemove)="handleMouseMove($event)"
+              (touchstart)="handleTouchStart($event)"
+              (touchend)="handleTouchEnd($event)"
+              (touchmove)="handleTouchMove($event)"></canvas>
     </div>
   </div>
 
-  <div class="footer">
+  <!-- Desktop keyboard hint (hidden on mobile) -->
+  <div class="footer desktop-only">
     <div class="controls-hint">
         <span class="key">W A S D</span> Move | 
         <span class="key">J</span> Melee | 
@@ -20,6 +24,61 @@
         <span class="key">ESC</span> Pause
     </div>
   </div>
+
+  <!-- ═══ MOBILE TOUCH CONTROLS ═══ -->
+  <div class="mobile-controls" aria-label="Mobile game controls">
+
+    <!-- Left side: D-Pad -->
+    <div class="dpad" aria-label="Directional pad">
+      <button class="dpad-btn dpad-up"
+              aria-label="Move up"
+              (touchstart)="onTouchBtn('up', true, $event)"
+              (touchend)="onTouchBtn('up', false, $event)">▲</button>
+      <div class="dpad-middle-row">
+        <button class="dpad-btn dpad-left"
+                aria-label="Move left"
+                (touchstart)="onTouchBtn('left', true, $event)"
+                (touchend)="onTouchBtn('left', false, $event)">◀</button>
+        <div class="dpad-center"></div>
+        <button class="dpad-btn dpad-right"
+                aria-label="Move right"
+                (touchstart)="onTouchBtn('right', true, $event)"
+                (touchend)="onTouchBtn('right', false, $event)">▶</button>
+      </div>
+      <button class="dpad-btn dpad-down"
+              aria-label="Move down"
+              (touchstart)="onTouchBtn('down', true, $event)"
+              (touchend)="onTouchBtn('down', false, $event)">▼</button>
+    </div>
+
+    <!-- Right side: Action buttons -->
+    <div class="action-buttons" aria-label="Action buttons">
+      <div class="action-top-row">
+        <button class="action-btn btn-special"
+                aria-label="Magic Beam (K) — costs 100 mana"
+                (touchstart)="onTouchBtn('k', true, $event)"
+                (touchend)="onTouchBtn('k', false, $event)">✦<span class="btn-label">BEAM</span></button>
+      </div>
+      <div class="action-mid-row">
+        <button class="action-btn btn-charge"
+                aria-label="Charge mana (L)"
+                (touchstart)="onTouchBtn('l', true, $event)"
+                (touchend)="onTouchBtn('l', false, $event)">⚡<span class="btn-label">MANA</span></button>
+        <button class="action-btn btn-melee"
+                aria-label="Melee strike (J)"
+                (touchstart)="onTouchBtn('j', true, $event)"
+                (touchend)="onTouchBtn('j', false, $event)">⚔<span class="btn-label">HIT</span></button>
+      </div>
+      <div class="action-bottom-row">
+        <button class="action-btn btn-pause"
+                aria-label="Pause game (ESC)"
+                (touchstart)="onTouchBtn('esc', true, $event)"
+                (touchend)="onTouchBtn('esc', false, $event)">⏸<span class="btn-label">PAUSE</span></button>
+      </div>
+    </div>
+
+  </div>
+  <!-- ═══ END MOBILE CONTROLS ═══ -->
 
   <!-- Overlay UI using Angular instead of direct Canvas drawing when possible -->
   <div class="ui-layer" *ngIf="logic.gameState === 5"> <!-- Game State Enum GAMEOVER -->

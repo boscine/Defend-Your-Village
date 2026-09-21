@@ -190,7 +190,43 @@ export class GameComponent implements AfterViewInit, OnDestroy {
     this.logic.soundManager.enable();
     const rect = this.canvasRef.nativeElement.getBoundingClientRect();
     const mx = event.clientX - rect.left; const my = event.clientY - rect.top;
-    
+    this.processCanvasInteraction(mx, my);
+  }
+
+  // ─────────────────────────────────────────────────────────────
+  // Touch events on the canvas (for menu / settings interactions)
+  // ─────────────────────────────────────────────────────────────
+
+  handleTouchStart(event: TouchEvent) {
+    event.preventDefault(); // Prevent ghost mouse-click delay on mobile
+    this.logic.soundManager.enable();
+  }
+
+  handleTouchEnd(event: TouchEvent) {
+    event.preventDefault();
+    if (event.changedTouches.length === 0) return;
+    const touch = event.changedTouches[0];
+    const rect = this.canvasRef.nativeElement.getBoundingClientRect();
+
+    // Scale touch coordinates from CSS pixels to canvas logical pixels
+    const scaleX = this.canvasRef.nativeElement.width / rect.width;
+    const scaleY = this.canvasRef.nativeElement.height / rect.height;
+    const mx = (touch.clientX - rect.left) * scaleX;
+    const my = (touch.clientY - rect.top) * scaleY;
+
+    this.processCanvasInteraction(mx, my);
+  }
+
+  handleTouchMove(event: TouchEvent) {
+    // Prevent default scrolling while the finger moves over the canvas
+    event.preventDefault();
+  }
+
+  /**
+   * Shared click/tap handler — works for both mouse (desktop) and touch (mobile)
+   * because touch coordinates are already scaled to canvas space by the caller.
+   */
+  private processCanvasInteraction(mx: number, my: number) {
     if (this.logic.gameState === GameState.START_OVERLAY) {
       this.logic.soundManager.playMenuClick();
       this.logic.gameState = GameState.MENU;
@@ -236,6 +272,108 @@ export class GameComponent implements AfterViewInit, OnDestroy {
         this.logic.pausebutton.boolean = false; 
         this.logic.soundManager.startBGM(); 
       }
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────────
+  // On-screen button press/release handlers (mobile D-pad & actions)
+  // ─────────────────────────────────────────────────────────────
+
+  /**
+   * Called by the mobile touch control buttons in the template.
+   * Maps virtual button names ('up', 'left', 'j', 'k', 'l', 'esc') to the
+   * same game logic flags that keyboard input sets.
+   */
+  onTouchBtn(action: string, isPress: boolean, event: TouchEvent) {
+    // Prevent the touch from propagating to the canvas or triggering click events
+    event.preventDefault();
+    event.stopPropagation();
+
+    // Unlock audio context on first user gesture (same as mouse click on canvas)
+    this.logic.soundManager.enable();
+
+    if (isPress) {
+      this.onMobileBtnPress(action);
+    } else {
+      this.onMobileBtnRelease(action);
+    }
+  }
+
+  private onMobileBtnPress(action: string) {
+    // Pause / ESC — always allowed
+    if (action === 'esc') {
+      if (this.logic.gameState === GameState.PLAYING) {
+        this.logic.pausebutton.boolean = !this.logic.pausebutton.boolean;
+        if (this.logic.pausebutton.boolean) this.logic.soundManager.stopBGM();
+        else this.logic.soundManager.startBGM();
+      }
+      return;
+    }
+
+    if (this.logic.gameState !== GameState.PLAYING) return;
+    if (this.logic.pausebutton.boolean) return;
+    if (this.logic.gameover) return;
+
+    switch (action) {
+      case 'up':    this.logic.moveUp = true;    break;
+      case 'down':  this.logic.moveDown = true;  break;
+      case 'left':
+        if (this.logic.movement && !this.logic.moveRight) this.logic.moveLeft = true;
+        break;
+      case 'right':
+        if (this.logic.movement && !this.logic.moveLeft) this.logic.moveRight = true;
+        break;
+      case 'j':
+        if (!this.logic.attack2 && !this.logic.charge && this.logic.movement) this.logic.attack = true;
+        break;
+      case 'k':
+        if (!this.logic.attack2 && !this.logic.attack && !this.logic.charge && this.logic.movement) {
+          if (this.logic.mana >= 100) {
+            this.logic.attack2 = true;
+          } else {
+            this.logic.manaFlash = 1.0;
+            this.logic.createFloatingText("NO MANA", this.logic.x + 10, this.logic.y - 10, '#FF4136');
+          }
+        }
+        break;
+      case 'l':
+        if (!this.logic.attack && !this.logic.attack2) this.logic.charge = true;
+        break;
+    }
+  }
+
+  private onMobileBtnRelease(action: string) {
+    if (this.logic.gameState !== GameState.PLAYING) return;
+
+    switch (action) {
+      case 'up':    this.logic.moveUp = false;   break;
+      case 'down':  this.logic.moveDown = false; break;
+      case 'left':
+        this.logic.moveLeft = false;
+        this.logic.lastDirection = 'left';
+        break;
+      case 'right':
+        this.logic.moveRight = false;
+        this.logic.lastDirection = 'right';
+        break;
+      case 'j':
+        this.logic.attack = false;
+        this.logic.attackhitbox.attackhit = false;
+        this.logic.direction = "";
+        this.logic.movement = true;
+        this.logic.limit = 2;
+        this.logic.frame = 0;
+        break;
+      case 'l':
+        this.logic.charge = false;
+        this.logic.direction = "";
+        this.logic.movement = true;
+        this.logic.limit = 2;
+        this.logic.frame = 0;
+        break;
+      case 'k':
+        // attack2 ends automatically at frame 9; nothing to reset on release
+        break;
     }
   }
 
