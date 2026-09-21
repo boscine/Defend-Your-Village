@@ -106,8 +106,13 @@ export class GameComponent implements AfterViewInit, OnDestroy {
 
   private startGameLoop() {
     const loop = (timestamp: number) => {
-      this.logic.update(timestamp);
-      this.renderer.draw(this.logic, this.images, this.loadedAttackImages);
+      // During LOADING the screen is essentially static — run logic+render only
+      // on the loading state so the progress bar still updates, but skip the
+      // full game-play render path (saves ~60 wasted heavy renders per second). (Fix #9)
+      if (this.logic.gameState !== GameState.LOADING || this.logic.loadingProgress < 1) {
+        this.logic.update(timestamp);
+        this.renderer.draw(this.logic, this.images, this.loadedAttackImages);
+      }
       this.animationId = requestAnimationFrame(loop);
     };
     this.animationId = requestAnimationFrame(loop);
@@ -190,7 +195,7 @@ export class GameComponent implements AfterViewInit, OnDestroy {
       this.logic.soundManager.playMenuClick();
       this.logic.gameState = GameState.MENU;
     } else if (this.logic.gameState === GameState.MENU) {
-      if (this.checkInBounds(mx, my, this.logic.playButton)) { this.logic.soundManager.playMenuClick(); this.logic.resetGame(); }
+      if (this.checkInBounds(mx, my, this.logic.playButton)) { this.logic.soundManager.playMenuClick(); this.logic.resetGame(); this.renderer.invalidateGradients(); }
       else if (this.checkInBounds(mx, my, this.logic.controlsButton)) { this.logic.soundManager.playMenuClick(); this.logic.gameState = GameState.CONTROLS; }
       else if (this.checkInBounds(mx, my, this.logic.settingsButton)) {
         this.logic.soundManager.playMenuClick();

@@ -9,9 +9,10 @@ export enum GameState {
 }
 
 export interface AccessibilitySettings {
-  lowEndMode: boolean;       // Reduces particle effects, disables screen shake
+  lowEndMode: boolean;       // Ultra performance mode: disables heavy shadows, filters, and screen shake
   highContrast: boolean;     // Increases contrast on healthbars and text elements
   reducedMotion: boolean;    // Removes floating/animating text motion and title bobbing
+  showFps: boolean;          // Displays live FPS and performance counter
   screenReaderText: string;  // Text announced for ARIA / screen readers
 }
 
@@ -63,16 +64,6 @@ export interface EnemyState {
   hurt: boolean[];
   hurtTimer: number[];
   attackType: number[];
-}
-
-export interface Particle {
-  x: number;
-  y: number;
-  vx: number;
-  vy: number;
-  life: number;
-  r: number;
-  color: string;
 }
 
 export interface AttackHitbox {

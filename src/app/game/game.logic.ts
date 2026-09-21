@@ -1,4 +1,4 @@
-import { GameState, Town, EnemyState, AttackHitbox, COLORS, Button, Particle, FloatingText } from './game.types';
+import { GameState, Town, EnemyState, AttackHitbox, COLORS, Button, FloatingText } from './game.types';
 import { SoundManager } from './game.sound';
 
 export class GameLogic {
@@ -20,7 +20,6 @@ export class GameLogic {
 
   public shakeIntensity = 0;
   public enemies = 5;
-  public particles: Particle[] = [];
   public floatingTexts: FloatingText[] = [];
   public canLevelUp = true;
   public map = 1;
@@ -59,8 +58,14 @@ export class GameLogic {
     lowEndMode: false,
     highContrast: false,
     reducedMotion: false,
+    showFps: true,
     screenReaderText: ''
   };
+
+  // FPS Metrics
+  public currentFps = 60;
+  private fpsFrames = 0;
+  private fpsLastTimestamp = 0;
 
   // Asset Loading State
   public loadingProgress = 0;
@@ -91,6 +96,16 @@ export class GameLogic {
   }
 
   update(timestamp: number) {
+    if (this.fpsLastTimestamp === 0) {
+      this.fpsLastTimestamp = timestamp;
+    }
+    this.fpsFrames++;
+    if (timestamp - this.fpsLastTimestamp >= 500) {
+      this.currentFps = Math.round((this.fpsFrames * 1000) / (timestamp - this.fpsLastTimestamp));
+      this.fpsFrames = 0;
+      this.fpsLastTimestamp = timestamp;
+    }
+
     if (this.gameState === GameState.MENU) {
       if (timestamp - this.lastMenuFrameTime > 200) {
         if (this.menuFrame === 4) {
@@ -143,7 +158,6 @@ export class GameLogic {
     this.clearEnemies();
     this.updateMap();
     this.updateFrames();
-    this.updateParticles();
     this.updateFloatingTexts();
 
     if (this.town.health <= 0 || this.playerHealth <= 0) {
@@ -224,7 +238,6 @@ export class GameLogic {
       this.direction = "";
       this.movement = true;
       this.shakeIntensity = 12; // Final fire shake
-      this.createMagicResidue(this.x + (this.lastDirection === "right" ? 50 : -10), this.y + 15);
     }
   }
 
@@ -240,9 +253,6 @@ export class GameLogic {
     }
 
     this.mana += 1;
-    
-    // Add charging aura particles
-    this.createManaParticles(this.x + 25, this.y + 25);
     
     // Pulsing charge sound
     if (this.counter % Math.max(1, Math.floor(50 / this.fps)) === 0) {
@@ -293,7 +303,6 @@ export class GameLogic {
               this.soundManager.playPlayerHurt();
               // Knockback
               if (this.enemy.x[i] < this.x) this.x += 15; else this.x -= 15;
-              this.createBlood(this.x + this.w / 2, this.y + this.h / 2);
             }
             this.enemy.attackingplayer[i] = true; this.enemy.move[i] = false;
           } else {
@@ -428,17 +437,11 @@ export class GameLogic {
     if (this.hurt) { this.hurtTimer--; if (this.hurtTimer <= 0) this.hurt = false; }
     if (this.town.hurt) { this.town.hurtTimer--; if (this.town.hurtTimer <= 0) this.town.hurt = false; }
     for (let i = 0; i < this.enemies; i++) {
-      if (this.enemy.hurt[i]) {
+      // Skip dead enemies — their hurt state is irrelevant (Fix #5)
+      if (this.enemy.hurt[i] && !this.enemy.enemydeath[i]) {
         this.enemy.hurtTimer[i]--;
         if (this.enemy.hurtTimer[i] <= 0) this.enemy.hurt[i] = false;
       }
-    }
-  }
-
-  private updateParticles() {
-    for (let i = this.particles.length - 1; i >= 0; i--) {
-      const p = this.particles[i]; p.x += p.vx; p.y += p.vy; p.vy += 0.2; p.life--;
-      if (p.life <= 0) this.particles.splice(i, 1);
     }
   }
 
@@ -457,11 +460,6 @@ export class GameLogic {
     this.floatingTexts.push({ text, x: px, y: py, life: 60, maxLife: 60, color });
   }
 
-  public createBlood(px: number, py: number) { if (this.accessibility.lowEndMode) return; for (let i = 0; i < 6; i++) { this.particles.push({ x: px, y: py, vx: (Math.random() - 0.5) * 6, vy: (Math.random() - 0.5) * 6, life: 25, r: 2 + Math.random() * 3, color: "red" }); } }
-  public createDebris(px: number, py: number) { if (this.accessibility.lowEndMode) return; for (let i = 0; i < 8; i++) { this.particles.push({ x: px, y: py, vx: (Math.random() - 0.5) * 4, vy: -Math.random() * 6, life: 30, r: 3 + Math.random() * 4, color: Math.random() > 0.5 ? "#5D6D7E" : "#85929E" }); } }
-  public createMagicResidue(px: number, py: number) { if (this.accessibility.lowEndMode) return; for (let i = 0; i < 15; i++) { this.particles.push({ x: px, y: py, vx: (Math.random() - 0.5) * 12, vy: (Math.random() - 0.5) * 12, life: 40, r: 1 + Math.random() * 4, color: Math.random() > 0.5 ? "#00FFFF" : "#FFFFFF" }); } }
-  public createManaParticles(px: number, py: number) { if (this.accessibility.lowEndMode || Math.random() < 0.2) return; this.particles.push({ x: px + (Math.random() - 0.5) * 60, y: py + 20, vx: (Math.random() - 0.5) * 2, vy: -2 - Math.random() * 3, life: 20, r: 1 + Math.random() * 2, color: "#00FFFF" }); }
-
   public resetGame() {
     this.x = 100; this.y = 330; // Updated to your preferred hitbox height
     this.playerHealth = 100; this.mana = 100;
@@ -472,7 +470,6 @@ export class GameLogic {
     this.gameState = GameState.PLAYING;
     this.dummyMap = []; // Clear current enemy map assignments
     this.spawnEnemies();
-    this.particles = [];
     this.floatingTexts = [];
   }
 }

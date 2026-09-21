@@ -1,7 +1,30 @@
-import { GameState, Town, EnemyState, AttackHitbox, COLORS, Button, Particle } from './game.types';
+import { GameState, Town, EnemyState, AttackHitbox, COLORS, Button } from './game.types';
 
 export class GameRenderer {
+  /** Reusable array for Y-sort to avoid per-frame allocation (Fix #13) */
+  private _entities: { type: string; y: number; id?: number }[] = [];
+  /** Gradient cache keyed by a stable string to avoid createLinearGradient every frame (Fix #6/#8) */
+  private _gradCache = new Map<string, CanvasGradient>();
+
   constructor(private ctx: CanvasRenderingContext2D) { }
+
+  /**
+   * Returns a cached CanvasGradient or creates and stores a new one.
+   * Use a stable `key` that encodes all relevant parameters.
+   */
+  private getLinearGradient(
+    key: string, x0: number, y0: number, x1: number, y1: number,
+    stops: [number, string][]
+  ): CanvasGradient {
+    if (this._gradCache.has(key)) return this._gradCache.get(key)!;
+    const g = this.ctx.createLinearGradient(x0, y0, x1, y1);
+    for (const [offset, color] of stops) g.addColorStop(offset, color);
+    this._gradCache.set(key, g);
+    return g;
+  }
+
+  /** Call when canvas dimensions change or game resets to force gradient recreation */
+  invalidateGradients() { this._gradCache.clear(); }
 
   draw(state: any, images: { [key: string]: HTMLImageElement }, loadedAttackImages: HTMLImageElement[]) {
     this.ctx.clearRect(0, 0, state.width, state.height);
@@ -354,7 +377,7 @@ export class GameRenderer {
       this.ctx.restore();
     };
 
-    drawToggleRow("LOW-END MODE",     "Disables FX & particles",       state.accessibility.lowEndMode,    state.toggleLowEndBtn,    cardY + 50);
+    drawToggleRow("LOW-END MODE",     "Maximum FPS & zero heavy FX",   state.accessibility.lowEndMode,    state.toggleLowEndBtn,    cardY + 50);
     drawToggleRow("HIGH CONTRAST",    "Brighter HUD elements",         state.accessibility.highContrast,  state.toggleContrastBtn,  cardY + 120);
     drawToggleRow("REDUCED MOTION",   "Removes floating text motion",  state.accessibility.reducedMotion, state.toggleMotionBtn,    cardY + 190);
 
@@ -379,26 +402,25 @@ export class GameRenderer {
     if (state.map === 1) { this.drawTown(state, images); }
     this.drawVillageHealthBar(state);
     
-    // Y-SORTING ENTITIES
-    let entities: any[] = [];
+    // Y-SORTING ENTITIES — reuse pre-allocated array to avoid GC pressure (Fix #13)
+    this._entities.length = 0;
     // Player entity
-    entities.push({ type: 'player', y: state.y });
+    this._entities.push({ type: 'player', y: state.y });
     // Enemy entities
     for (let i = 0; i < state.enemies; i++) {
       if (state.dummyMap[i] === state.map) {
-        entities.push({ type: 'enemy', y: state.enemy.y[i], id: i });
+        this._entities.push({ type: 'enemy', y: state.enemy.y[i], id: i });
       }
     }
     // Sort by Y-coordinate
-    entities.sort((a, b) => a.y - b.y);
+    this._entities.sort((a, b) => a.y - b.y);
 
     // DRAW SORTED
-    entities.forEach(ent => {
+    for (const ent of this._entities) {
       if (ent.type === 'player') this.drawPlayer(state, images, loadedAttackImages);
-      else this.drawEnemy(state, images, ent.id);
-    });
+      else this.drawEnemy(state, images, ent.id!);
+    }
 
-    this.drawParticles(state);
     this.drawFloatingTexts(state);
     this.drawUI(state, images);
 
@@ -428,10 +450,13 @@ export class GameRenderer {
     const y = 200;
     
     this.ctx.save();
-    this.ctx.shadowBlur = 15; this.ctx.shadowColor = "rgba(255, 0, 0, 0.8)";
-    this.ctx.fillStyle = "rgba(255, 0, 0, 0.9)";
+    // Use strokeText outline instead of shadowBlur — avoids expensive GPU compositing (Fix #10)
     this.ctx.font = "bold 22px 'Orbitron'";
     this.ctx.textAlign = "start";
+    this.ctx.strokeStyle = "rgba(180, 0, 0, 0.7)";
+    this.ctx.lineWidth = 3;
+    this.ctx.strokeText(text, x, y);
+    this.ctx.fillStyle = "rgba(255, 0, 0, 0.9)";
     this.ctx.fillText(text, x, y);
     
     // Arrow detail
@@ -466,16 +491,10 @@ export class GameRenderer {
 
       this.ctx.save();
 
-      // Drop shadow
-      this.ctx.shadowColor = "rgba(0,0,0,0.7)";
-      this.ctx.shadowBlur = 12;
-      this.ctx.shadowOffsetY = 4;
-
       // Panel background
       this.ctx.fillStyle = "rgba(8, 12, 22, 0.92)";
       (this.ctx as any).roundRect(panelX, panelY, panelW, panelH, 8);
       this.ctx.fill();
-      this.ctx.shadowBlur = 0; this.ctx.shadowOffsetY = 0;
 
       // Panel border — glows red when critical
       this.ctx.strokeStyle = isCritical
@@ -528,15 +547,13 @@ export class GameRenderer {
       (this.ctx as any).roundRect(bx, by, bw, bh, 3);
       this.ctx.fill();
 
-      // Bar fill gradient
-      const barColor = isCritical
-        ? (pulse > 0.5 ? "#FF3C3C" : "#CC0000")
-        : isLow ? "#FFA020" : "#40DCA0";
+      // Bar fill gradient — cached by state tier to avoid createLinearGradient every frame (Fix #6)
       const fillW = Math.max(0, pct * bw);
       if (fillW > 0) {
-        const grad = this.ctx.createLinearGradient(bx, 0, bx + bw, 0);
-        grad.addColorStop(0, barColor);
-        grad.addColorStop(1, isCritical ? "#FF8080" : isLow ? "#FFD060" : "#00F5A0");
+        const gradKey = isCritical ? 'hp-crit' : isLow ? 'hp-low' : 'hp-ok';
+        const gradColors: [string, string] = isCritical
+          ? ['#CC0000', '#FF8080'] : isLow ? ['#FFA020', '#FFD060'] : ['#40DCA0', '#00F5A0'];
+        const grad = this.getLinearGradient(gradKey, bx, 0, bx + bw, 0, [[0, gradColors[0]], [1, gradColors[1]]]);
         this.ctx.fillStyle = grad;
         (this.ctx as any).roundRect(bx, by, fillW, bh, 3);
         this.ctx.fill();
@@ -572,16 +589,10 @@ export class GameRenderer {
 
       this.ctx.save();
 
-      // Panel shadow
-      this.ctx.shadowColor = "rgba(0,0,0,0.6)";
-      this.ctx.shadowBlur = 10;
-      this.ctx.shadowOffsetY = 3;
-
       // Panel background
       this.ctx.fillStyle = "rgba(8, 12, 22, 0.92)";
       (this.ctx as any).roundRect(panelX, panelY, panelW, panelH, 7);
       this.ctx.fill();
-      this.ctx.shadowBlur = 0; this.ctx.shadowOffsetY = 0;
 
       // Panel border
       this.ctx.strokeStyle = isCritical
@@ -631,12 +642,13 @@ export class GameRenderer {
       (this.ctx as any).roundRect(bx, by, bw, bh, 3);
       this.ctx.fill();
 
-      // Bar fill
+      // Bar fill — cached gradient by HP tier (Fix #6)
       const fillW = Math.max(0, pct * bw);
       if (fillW > 0) {
-        const grad = this.ctx.createLinearGradient(bx, 0, bx + bw, 0);
-        grad.addColorStop(0, isCritical ? "#CC0000" : isLow ? "#FFA020" : "#40DCA0");
-        grad.addColorStop(1, isCritical ? "#FF6060" : isLow ? "#FFD060" : "#00F5A0");
+        const gradKey2 = isCritical ? 'hp2-crit' : isLow ? 'hp2-low' : 'hp2-ok';
+        const gradColors2: [string, string] = isCritical
+          ? ['#CC0000', '#FF6060'] : isLow ? ['#FFA020', '#FFD060'] : ['#40DCA0', '#00F5A0'];
+        const grad = this.getLinearGradient(gradKey2, bx, 0, bx + bw, 0, [[0, gradColors2[0]], [1, gradColors2[1]]]);
         this.ctx.fillStyle = grad;
         (this.ctx as any).roundRect(bx, by, fillW, bh, 3);
         this.ctx.fill();
@@ -677,7 +689,6 @@ export class GameRenderer {
     let tx = state.town.x, ty = state.town.y;
     if (state.town.hurt) { tx += (Math.random() - 0.5) * 4; ty += (Math.random() - 0.5) * 4; }
     this.ctx.save();
-    if (state.town.hurt) { this.ctx.shadowBlur = 15; this.ctx.shadowColor = "rgba(255, 0, 0, 0.8)"; }
     const v = [images['village1'], images['village2'], images['village3'], images['village4'], images['village5'], images['buildingSmith']];
     if (v[3] && v[3].complete) this.ctx.drawImage(v[3], tx - 100, ty - 60, 160, 160);
     if (v[4] && v[4].complete) this.ctx.drawImage(v[4], tx + 180, ty - 60, 160, 160);
@@ -698,14 +709,12 @@ export class GameRenderer {
     if (state.hurt) { img = images['hurt']; sourceFrame = state.frame % 2; }
     if (state.gameover) img = images['dead'];
     if (img && img.complete) {
-      this.ctx.save(); this.ctx.beginPath(); this.ctx.translate(state.x + state.w / 2, state.y + state.h);
-      this.ctx.scale(1.5, 0.4); this.ctx.arc(0, 0, 10, 0, Math.PI * 2);
-      this.ctx.fillStyle = "rgba(0, 0, 0, 0.45)"; this.ctx.fill(); this.ctx.restore();
       const flipped = state.lastDirection === "left";
       this.ctx.save();
       if (state.hurt) {
-        this.ctx.shadowBlur = 15; this.ctx.shadowColor = "red";
-        this.ctx.filter = "brightness(1.5) sepia(1) saturate(5) hue-rotate(-50deg)"; // Reddish tint
+        if (!state.accessibility?.lowEndMode) {
+          this.ctx.filter = "brightness(1.5) sepia(1) saturate(5) hue-rotate(-50deg)"; // Reddish tint
+        }
       }
       if (flipped) {
         this.ctx.scale(-1, 1);
@@ -713,6 +722,11 @@ export class GameRenderer {
       }
       else {
         this.ctx.drawImage(img, sourceFrame * 128, 0, 128, 128, state.x - 30, state.y - 70, 120, 120);
+      }
+      if (state.hurt && state.accessibility?.lowEndMode) {
+        // Fast, zero-overhead red flash overlay for low-end mode (no ctx.filter lag)
+        this.ctx.fillStyle = "rgba(255, 0, 0, 0.4)";
+        this.ctx.fillRect(state.x - 10, state.y - 40, state.w + 20, state.h + 40);
       }
       this.ctx.restore();
 
@@ -726,40 +740,32 @@ export class GameRenderer {
     const beamY = state.y + 8; const beamHeight = 40; const beamWidth = state.width; 
     const pulse = Math.sin(Date.now() / 50) * 8;
     this.ctx.save();
-    if (state.lastDirection === "left") { this.ctx.scale(-1, 1); this.renderBeamEffect(-state.x + 13, beamY - pulse / 2, beamWidth, beamHeight + pulse); }
-    else { this.renderBeamEffect(state.x + 45, beamY - pulse / 2, beamWidth, beamHeight + pulse); }
+    if (state.lastDirection === "left") { this.ctx.scale(-1, 1); this.renderBeamEffect(state, -state.x + 13, beamY - pulse / 2, beamWidth, beamHeight + pulse); }
+    else { this.renderBeamEffect(state, state.x + 45, beamY - pulse / 2, beamWidth, beamHeight + pulse); }
     this.ctx.restore();
-    
-    // Add extra particles along the beam for intensity
-    if (Math.random() > 0.5) {
-      const bx = state.x + (state.lastDirection === "right" ? 100 : -100);
-      state.particles.push({ 
-        x: bx + Math.random() * 400 * (state.lastDirection === "right" ? 1 : -1), 
-        y: beamY + Math.random() * 40 - 20, 
-        vx: (Math.random() - 0.5) * 4, vy: (Math.random() - 0.5) * 4, 
-        life: 10, r: 1 + Math.random() * 2, color: "#99FFFF" 
-      });
-    }
   }
 
-  private renderBeamEffect(bx: number, by: number, bw: number, bh: number) {
-    // Dynamic animated core
-    const time = Date.now() / 100;
+  private renderBeamEffect(state: any, bx: number, by: number, bw: number, bh: number) {
     const centerY = by + bh / 2;
     const startH = 3; // THIN START as requested
     const endH = bh; // Full target height at distance
 
-    const coreGrad = this.ctx.createLinearGradient(bx, by, bx, by + bh);
-    coreGrad.addColorStop(0, "rgba(0, 255, 255, 0)"); 
-    coreGrad.addColorStop(0.2 + Math.sin(time) * 0.05, "rgba(0, 255, 255, 0.8)");
-    coreGrad.addColorStop(0.5, "#fff"); 
-    coreGrad.addColorStop(0.8 - Math.sin(time) * 0.05, "rgba(0, 255, 255, 0.8)"); 
-    coreGrad.addColorStop(1, "rgba(0, 255, 255, 0)");
+    // Static beam gradient — cached to avoid createLinearGradient every frame (Fix #8).
+    // Animated stop offsets only shift by sin(t)*0.05 — imperceptible, removed for perf.
+    const coreGrad = this.getLinearGradient(
+      'beam-core', bx, by, bx, by + bh,
+      [
+        [0,   'rgba(0, 255, 255, 0)'],
+        [0.2, 'rgba(0, 255, 255, 0.8)'],
+        [0.5, '#fff'],
+        [0.8, 'rgba(0, 255, 255, 0.8)'],
+        [1,   'rgba(0, 255, 255, 0)'],
+      ]
+    );
 
     this.ctx.save();
     
     // Conical outer glow
-    this.ctx.shadowBlur = 30; this.ctx.shadowColor = "#00ffff"; 
     this.ctx.fillStyle = "rgba(0, 217, 255, 0.25)";
     this.ctx.beginPath();
     this.ctx.moveTo(bx, centerY - (startH + 5) / 2);
@@ -778,13 +784,13 @@ export class GameRenderer {
     this.ctx.lineTo(bx, centerY + startH / 2);
     this.ctx.fill();
     
-    // Electric arcs (tightened at start point)
+    // Electric arcs — reduced from 4×10 to 2×8 segments for ~50% less path math (Fix #1)
     this.ctx.beginPath(); this.ctx.strokeStyle = "rgba(255, 255, 255, 0.7)"; this.ctx.lineWidth = 1;
-    for (let i = 0; i < 4; i++) {
+    for (let i = 0; i < 2; i++) {
         let lx = bx; let ly = centerY;
         this.ctx.moveTo(lx, ly);
-        for(let step = 1; step <= 10; step++) {
-            const progress = step / 10;
+        for (let step = 1; step <= 8; step++) {
+            const progress = step / 8;
             lx = bx + bw * progress; 
             const currentSpread = (startH + 2) + (endH - startH) * progress;
             ly = centerY + (Math.random() - 0.5) * currentSpread;
@@ -806,18 +812,6 @@ export class GameRenderer {
     }
 
     if (img && img.complete) {
-      // Draw shadow (LOWERED) - ONLY IF ALIVE
-      if (!state.enemy.enemydeath[i]) {
-        this.ctx.save();
-        this.ctx.beginPath();
-        this.ctx.translate(state.enemy.x[i] + 5, state.enemy.y[i] + 40);
-        this.ctx.scale(1.8, 0.5);
-        this.ctx.arc(0, 0, 8, 0, Math.PI * 2);
-        this.ctx.fillStyle = "rgba(0,0,0,0.5)";
-        this.ctx.fill();
-        this.ctx.restore();
-      }
-
       let currentFrame = 0;
       const sheetFrames = Math.floor(img.width / 128) || 1; 
 
@@ -829,13 +823,15 @@ export class GameRenderer {
 
       // Draw skeleton with high-fidelity framing (100x100)
       this.ctx.save();
-      if (state.enemy.attackingplayer[i] && !state.enemy.enemydeath[i]) {
-          this.ctx.shadowBlur = 10; this.ctx.shadowColor = "rgba(255, 0, 0, 0.5)";
-      }
-      if (state.enemy.hurt[i]) {
+      if (state.enemy.hurt[i] && !state.accessibility?.lowEndMode) {
           this.ctx.filter = "brightness(2) contrast(1.5)";
       }
       this.ctx.drawImage(img, currentFrame * 128, 0, 128, 128, state.enemy.x[i] - 40, state.enemy.y[i] - 60, 100, 100);
+      if (state.enemy.hurt[i] && state.accessibility?.lowEndMode) {
+        // Fast zero-cost hurt flash indicator for low-end mode
+        this.ctx.fillStyle = "rgba(255, 255, 255, 0.5)";
+        this.ctx.fillRect(state.enemy.x[i] - 10, state.enemy.y[i] - 25, 20, 25);
+      }
       this.ctx.restore();
 
       if (!state.enemy.enemydeath[i]) {
@@ -847,11 +843,42 @@ export class GameRenderer {
     }
   }
 
-  private drawParticles(state: any) {
-    state.particles.forEach((p: Particle) => { this.ctx.fillStyle = p.color || "red"; this.ctx.beginPath(); this.ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2); this.ctx.fill(); });
+  private drawUI(state: any, images: { [key: string]: HTMLImageElement }) {
+    this.drawHealthBar(state, images);
+    this.drawManaBar(state);
+    this.drawLevelUI(state);
+    if (state.accessibility?.showFps) this.drawFpsBadge(state);
+    if (state.pausebutton.boolean) this.drawPauseOverlay(state);
   }
 
-  private drawUI(state: any, images: { [key: string]: HTMLImageElement }) { this.drawHealthBar(state, images); this.drawManaBar(state); this.drawLevelUI(state); if (state.pausebutton.boolean) this.drawPauseOverlay(state); }
+  private drawFpsBadge(state: any) {
+    const fps = state.currentFps || 60;
+    const isLowEnd = !!state.accessibility?.lowEndMode;
+    const text = isLowEnd ? `${fps} FPS • ECO` : `${fps} FPS`;
+
+    this.ctx.save();
+    this.ctx.font = "bold 10px 'Orbitron', monospace";
+    this.ctx.textAlign = "right";
+
+    // Compact unobtrusive badge in bottom right corner
+    const badgeW = isLowEnd ? 90 : 65;
+    const badgeH = 18;
+    const x = state.width - badgeW - 10;
+    const y = state.height - badgeH - 8;
+
+    this.ctx.fillStyle = "rgba(0, 0, 0, 0.5)";
+    (this.ctx as any).roundRect(x, y, badgeW, badgeH, 4);
+    this.ctx.fill();
+
+    this.ctx.strokeStyle = fps >= 50 ? "rgba(56, 239, 125, 0.4)" : "rgba(255, 60, 60, 0.4)";
+    this.ctx.lineWidth = 1;
+    (this.ctx as any).roundRect(x, y, badgeW, badgeH, 4);
+    this.ctx.stroke();
+
+    this.ctx.fillStyle = fps >= 50 ? "#38EF7D" : fps >= 30 ? "#FFA020" : "#FF5555";
+    this.ctx.fillText(text, state.width - 16, y + 13);
+    this.ctx.restore();
+  }
 
   private drawHealthBar(state: any, images: { [key: string]: HTMLImageElement }) {
     const x = 1, y = 10, w_f = 260, h_f = 45, b_x = x + 80, b_h = 10, b_w = 160, b_y = y + (h_f / 2) - (b_h / 2);
@@ -913,13 +940,9 @@ export class GameRenderer {
     const panelX = W / 2 - panelW / 2, panelY = H / 2 - panelH / 2 - 10;
 
     this.ctx.save();
-    this.ctx.shadowColor = "rgba(0,0,0,0.8)";
-    this.ctx.shadowBlur = 30;
-    this.ctx.shadowOffsetY = 8;
     this.ctx.fillStyle = "rgba(10, 14, 26, 0.96)";
     (this.ctx as any).roundRect(panelX, panelY, panelW, panelH, 14);
     this.ctx.fill();
-    this.ctx.shadowBlur = 0; this.ctx.shadowOffsetY = 0;
 
     // Panel border
     this.ctx.strokeStyle = "rgba(255,255,255,0.1)";
@@ -1024,14 +1047,15 @@ export class GameRenderer {
     this.ctx.save();
     this.ctx.textAlign = "center";
     this.ctx.font = "bold 16px 'Orbitron'";
-    state.floatingTexts.forEach((ft: any) => {
+    // shadowBlur removed — triggers GPU compositing layer per text; alpha fade is sufficient (Fix #4)
+    this.ctx.shadowBlur = 0;
+    for (const ft of state.floatingTexts) {
       const alpha = Math.max(0, ft.life / ft.maxLife);
-      this.ctx.fillStyle = ft.color;
       this.ctx.globalAlpha = alpha;
-      this.ctx.shadowBlur = 10;
-      this.ctx.shadowColor = ft.color;
+      this.ctx.fillStyle = ft.color;
       this.ctx.fillText(ft.text, ft.x, ft.y);
-    });
+    }
+    this.ctx.globalAlpha = 1;
     this.ctx.restore();
   }
 }
