@@ -38,6 +38,7 @@
 }
 
 .game-container {
+    position: relative;
     overflow: hidden;
     border-radius: 8px;
     background: #000;
@@ -50,6 +51,51 @@ canvas {
     image-rendering: pixelated;
     image-rendering: crisp-edges;
 }
+
+/* ============================================================
+   MENU A11Y OVERLAY
+   Invisible DOM buttons aligned to the canvas-drawn MENU buttons.
+   Renders no visuals of its own - the canvas already draws the button
+   and its label. Supplies only what canvas hit-testing cannot:
+   focusability, keyboard activation and an accessible name.
+   Geometry is bound from logic.playButton / controlsButton /
+   settingsButton as percentages of the canvas box, so it needs no JS
+   measurement and stays aligned whenever the canvas is CSS-scaled.
+   ============================================================ */
+.menu-a11y-layer {
+    position: absolute;
+    inset: 0;
+    /* Let pointer events fall through to the canvas; buttons opt back in. */
+    pointer-events: none;
+}
+
+.menu-a11y-btn {
+    position: absolute;
+    pointer-events: auto;
+    /* Fully transparent: the canvas paints the button and its label. */
+    background: transparent;
+    border: 0;
+    /* Matches the roundRect radius in drawStyledButton. */
+    border-radius: 8px;
+    padding: 0;
+    margin: 0;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+}
+
+.menu-a11y-btn:focus {
+    outline: none;
+}
+
+/* Keyboard focus ring. 3px solid is COLORS.cyan from game.types.ts.
+   Applied instantly with no transition, so it also honours the
+   reducedMotion accessibility setting. */
+.menu-a11y-btn:focus-visible {
+    outline: 3px solid #25b4da;
+    outline-offset: 2px;
+}
+
 
 /* Desktop keyboard hint footer */
 .footer {

@@ -1,8 +1,25 @@
 import { Component, ElementRef, ViewChild, AfterViewInit, OnDestroy, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { GameState } from './game.types';
+import { GameState, Button } from './game.types';
 import { GameRenderer } from './game.renderer';
 import { GameLogic } from './game.logic';
+
+/**
+ * View model for one invisible DOM button layered over a canvas-drawn button.
+ *
+ * The canvas still draws every pixel exactly as before. These exist only to
+ * supply what canvas hit-testing cannot: focusability, keyboard activation and
+ * an accessible name (WCAG 2.1.1 Keyboard, 4.1.2 Name/Role/Value).
+ *
+ * 'style' is computed once instead of per change-detection pass. Menu button
+ * geometry is static, so a fresh object every frame would make ngStyle re-diff
+ * twelve style properties sixty times a second for no benefit.
+ */
+interface MenuA11yButton {
+  label: string;
+  button: Button;
+  style: { [key: string]: string };
+}
 
 @Component({
   selector: 'app-game',
@@ -21,6 +38,14 @@ export class GameComponent implements AfterViewInit, OnDestroy {
   private images: { [key: string]: HTMLImageElement } = {};
   private loadedAttackImages: HTMLImageElement[] = [];
 
+  /** Invisible DOM buttons overlaid on the canvas-drawn MENU buttons. */
+  public menuA11yButtons: MenuA11yButton[] = [];
+
+  /** True only on the MENU screen; gates the overlay in the template. */
+  public get isMenuState(): boolean {
+    return this.logic.gameState === GameState.MENU;
+  }
+
   constructor() {}
 
   ngAfterViewInit() {
@@ -28,6 +53,7 @@ export class GameComponent implements AfterViewInit, OnDestroy {
     this.canvasRef.nativeElement.width = 1000;
     this.canvasRef.nativeElement.height = 400;
     this.renderer = new GameRenderer(ctx);
+    this.buildMenuA11yLayer();
     this.initAssets();
     this.startGameLoop();
   }
@@ -375,6 +401,62 @@ export class GameComponent implements AfterViewInit, OnDestroy {
         // attack2 ends automatically at frame 9; nothing to reset on release
         break;
     }
+  }
+
+  /**
+   * Mirrors the three canvas-drawn MENU buttons into invisible DOM buttons so
+   * they are reachable by keyboard and exposed to assistive technology.
+   *
+   * Geometry becomes percentages of the canvas box. The canvas is CSS-scaled
+   * and the overlay sits inside .game-container, which is exactly the canvas
+   * box, so the layer stays pixel-aligned at every breakpoint with no JS
+   * measurement and no resize listener.
+   */
+  private buildMenuA11yLayer() {
+    // Accessible names must contain the label the canvas visibly draws (WCAG 2.5.3).
+    const entries: Array<{ label: string; button: Button }> = [
+      { label: 'Play', button: this.logic.playButton },
+      { label: 'Controls - battle commands', button: this.logic.controlsButton },
+      { label: 'Settings - audio and accessibility', button: this.logic.settingsButton }
+    ];
+    this.menuA11yButtons = entries.map(entry => ({
+      label: entry.label,
+      button: entry.button,
+      style: this.toOverlayStyle(entry.button)
+    }));
+  }
+
+  /** Canvas logical pixels -> CSS percentages of the canvas box. */
+  private toOverlayStyle(btn: Button): { [key: string]: string } {
+    return {
+      left: (btn.x / this.logic.width * 100) + '%',
+      top: (btn.y / this.logic.height * 100) + '%',
+      width: (btn.width / this.logic.width * 100) + '%',
+      height: (btn.height / this.logic.height * 100) + '%'
+    };
+  }
+
+  /**
+   * Activates a menu button through the shared canvas interaction path, so
+   * keyboard activation is behaviourally identical to a mouse click: same
+   * audio unlock, same click sound, same state transitions.
+   */
+  onMenuA11yActivate(entry: MenuA11yButton) {
+    this.logic.soundManager.enable();
+    const btn = entry.button;
+    this.processCanvasInteraction(btn.x + btn.width / 2, btn.y + btn.height / 2);
+  }
+
+  /**
+   * Forwards pointer hover onto the canvas button state. Normally this arrives
+   * via handleMouseMove, but these buttons sit above the canvas and swallow the
+   * pointer, so the canvas highlight has to be driven from here instead.
+   *
+   * Keyboard focus is deliberately not mirrored here: the CSS focus ring owns
+   * that state, so the two indicators cannot fight each other.
+   */
+  onMenuA11yHover(entry: MenuA11yButton, hovering: boolean) {
+    entry.button.hover = hovering;
   }
 
   private checkInBounds(x: number, y: number, btn: any) { return x >= btn.x && x <= btn.x + btn.width && y >= btn.y && y <= btn.y + btn.height; }

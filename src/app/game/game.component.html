@@ -11,6 +11,26 @@
               (touchstart)="handleTouchStart($event)"
               (touchend)="handleTouchEnd($event)"
               (touchmove)="handleTouchMove($event)"></canvas>
+
+      <!--
+        Invisible DOM buttons layered over the canvas-drawn MENU buttons.
+        The canvas still renders every visual; this layer only supplies the
+        focusability, keyboard activation and accessible names that canvas
+        hit-testing cannot (WCAG 2.1.1 Keyboard, 4.1.2 Name/Role/Value,
+        2.5.3 Label in Name). Geometry comes from the same Button objects the
+        renderer draws, converted to percentages of the canvas box.
+        MENU screen only - CONTROLS, SETTINGS and the pause overlay remain
+        canvas-only for now.
+      -->
+      <div class="menu-a11y-layer" *ngIf="isMenuState">
+        <button *ngFor="let entry of menuA11yButtons"
+                class="menu-a11y-btn"
+                [ngStyle]="entry.style"
+                [attr.aria-label]="entry.label"
+                (click)="onMenuA11yActivate(entry)"
+                (mouseenter)="onMenuA11yHover(entry, true)"
+                (mouseleave)="onMenuA11yHover(entry, false)"></button>
+      </div>
     </div>
   </div>
 
