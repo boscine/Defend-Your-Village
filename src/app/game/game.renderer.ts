@@ -23,8 +23,32 @@ export class GameRenderer {
     return g;
   }
 
+  /**
+   * Pre-baked "hurt" variants of enemy spritesheets.
+   * Setting ctx.filter per draw forces the browser to build a new compositing layer
+   * for every enemy on every frame. The filtered result is identical for a given
+   * sheet, so bake it once offscreen and blit that instead. Fix #14.
+   */
+  private _hurtSheetCache = new Map<HTMLImageElement, HTMLCanvasElement>();
+
+  private getHurtSheet(img: HTMLImageElement): HTMLCanvasElement {
+    const cached = this._hurtSheetCache.get(img);
+    if (cached) return cached;
+    const sheet = document.createElement('canvas');
+    sheet.width = img.naturalWidth || img.width;
+    sheet.height = img.naturalHeight || img.height;
+    const sctx = sheet.getContext('2d');
+    if (sctx) {
+      sctx.filter = 'brightness(2) contrast(1.5)';
+      sctx.drawImage(img, 0, 0);
+      sctx.filter = 'none';
+    }
+    this._hurtSheetCache.set(img, sheet);
+    return sheet;
+  }
+
   /** Call when canvas dimensions change or game resets to force gradient recreation */
-  invalidateGradients() { this._gradCache.clear(); }
+  invalidateGradients() { this._gradCache.clear(); this._hurtSheetCache.clear(); }
 
   draw(state: any, images: { [key: string]: HTMLImageElement }, loadedAttackImages: HTMLImageElement[]) {
     this.ctx.clearRect(0, 0, state.width, state.height);
@@ -255,8 +279,18 @@ export class GameRenderer {
       this.ctx.textAlign = "left";
       this.ctx.fillText(label, rowX, rowY);
 
+      // Right gutter holds [percent label][-][+]. Deriving trackW from the reserved
+      // widths makes overlap impossible; the old fixed rowW-84 left only 84px for
+      // a ~42px label plus 26 + 6 + 26 of buttons = 100px needed. Fix #15.
+      const BTN_W = 26, BTN_GAP = 6, BTN_H = 20, PCT_W = 48, GAP = 10;
+      const rowRight = rowX + rowW;
+      const upBtnX = rowRight - BTN_W;
+      const downBtnX = upBtnX - BTN_GAP - BTN_W;
+      const pctCx = downBtnX - GAP - PCT_W / 2;
+      const trackX = rowX, trackY = rowY + 6, trackH = 6;
+      const trackW = pctCx - PCT_W / 2 - GAP - trackX;
+
       // Volume track background
-      const trackX = rowX, trackY = rowY + 6, trackW = rowW - 84, trackH = 6;
       this.ctx.fillStyle = "rgba(255,255,255,0.08)";
       (this.ctx as any).roundRect(trackX, trackY, trackW, trackH, 3);
       this.ctx.fill();
@@ -285,10 +319,10 @@ export class GameRenderer {
       this.ctx.fillStyle = "#ffffff";
       this.ctx.font = "bold 12px 'Orbitron'";
       this.ctx.textAlign = "center";
-      this.ctx.fillText(Math.round(value * 100) + "%", trackX + trackW + 28, rowY + 2);
+      this.ctx.fillText(Math.round(value * 100) + "%", pctCx, rowY + 2);
 
       // – button
-      downBtn.x = leftX + cardW - 68; downBtn.y = rowY - 11; downBtn.width = 26; downBtn.height = 20;
+      downBtn.x = downBtnX; downBtn.y = rowY - 11; downBtn.width = BTN_W; downBtn.height = BTN_H;
       const downHover = downBtn.hover;
       this.ctx.fillStyle = downHover ? "rgba(255,255,255,0.2)" : "rgba(255,255,255,0.07)";
       (this.ctx as any).roundRect(downBtn.x, downBtn.y, downBtn.width, downBtn.height, 5);
@@ -301,7 +335,7 @@ export class GameRenderer {
       this.ctx.fillText("−", downBtn.x + downBtn.width / 2, downBtn.y + 14);
 
       // + button
-      upBtn.x = leftX + cardW - 36; upBtn.y = rowY - 11; upBtn.width = 26; upBtn.height = 20;
+      upBtn.x = upBtnX; upBtn.y = rowY - 11; upBtn.width = BTN_W; upBtn.height = BTN_H;
       const upHover = upBtn.hover;
       this.ctx.fillStyle = upHover ? "rgba(255,255,255,0.2)" : "rgba(255,255,255,0.07)";
       (this.ctx as any).roundRect(upBtn.x, upBtn.y, upBtn.width, upBtn.height, 5);
@@ -823,10 +857,9 @@ export class GameRenderer {
 
       // Draw skeleton with high-fidelity framing (100x100)
       this.ctx.save();
-      if (state.enemy.hurt[i] && !state.accessibility?.lowEndMode) {
-          this.ctx.filter = "brightness(2) contrast(1.5)";
-      }
-      this.ctx.drawImage(img, currentFrame * 128, 0, 128, 128, state.enemy.x[i] - 40, state.enemy.y[i] - 60, 100, 100);
+      const useHurtSheet = state.enemy.hurt[i] && !state.accessibility?.lowEndMode;
+      const sprite = useHurtSheet ? this.getHurtSheet(img) : img;
+      this.ctx.drawImage(sprite, currentFrame * 128, 0, 128, 128, state.enemy.x[i] - 40, state.enemy.y[i] - 60, 100, 100);
       if (state.enemy.hurt[i] && state.accessibility?.lowEndMode) {
         // Fast zero-cost hurt flash indicator for low-end mode
         this.ctx.fillStyle = "rgba(255, 255, 255, 0.5)";
